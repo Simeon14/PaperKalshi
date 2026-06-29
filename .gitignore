@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# Virtualenv
+.venv/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Environment / secrets
+.env
+.env.*
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Local data — your paper account lives here, never commit it
+data/
+
+# Internal working notes (not for publication)
+handoff.md
