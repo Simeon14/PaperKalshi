@@ -1,5 +1,5 @@
 {
   "crons": [
-    { "path": "/api/cron/refresh-leaderboard", "schedule": "0 * * * *" }
+    { "path": "/api/cron/refresh-leaderboard", "schedule": "0 8 * * *" }
   ]
 }
