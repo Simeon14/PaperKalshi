@@ -1,6 +1,8 @@
 // Ported from kalshi_live.py: the LiveMarket snapshot + top-of-book helpers.
 // Kalshi returns top-of-book under `*_dollars` fields; we keep everything in integer cents.
 
+import { isMlbTicker, mlbMatchup, mlbTeam } from "@/lib/kalshi/mlb";
+
 export interface LiveMarket {
   ticker: string;
   event_ticker: string;
@@ -56,12 +58,15 @@ export function isTradeable(m: LiveMarket): boolean {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toLive(m: any): LiveMarket {
+  const ticker = m.ticker ?? "";
   const title = String(m.title ?? "").replace(" Winner?", "").trim();
+  const sub = m.yes_sub_title ?? "";
+  const mlb = isMlbTicker(ticker);
   return {
-    ticker: m.ticker,
+    ticker,
     event_ticker: m.event_ticker ?? "",
-    matchup: title,
-    team: m.yes_sub_title ?? "",
+    matchup: mlb ? mlbMatchup(title) : title,
+    team: mlb ? mlbTeam(sub, ticker) : sub,
     yes_bid_c: cents(m.yes_bid_dollars),
     yes_ask_c: cents(m.yes_ask_dollars),
     no_bid_c: cents(m.no_bid_dollars),

@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchMarket } from "@/lib/kalshi/board";
 import { yesMidC, noMidC, isResolved } from "@/lib/kalshi/market";
+import { isMlbTicker, mlbMatchup, mlbTeam } from "@/lib/kalshi/mlb";
 
 // Account snapshot shaped like the original /api/account response, so the UI port can reuse
 // the same fields. Money fields are dollars; *_c fields are cents.
@@ -101,10 +102,11 @@ export async function getAccountState(userId: string): Promise<AccountState> {
     const valueC = markC !== null && markC !== undefined ? markC * p.contracts : p.cost_c;
     positionsValueC += valueC;
     positionsCostC += p.cost_c;
+    const mlb = isMlbTicker(p.ticker);
     return {
       ticker: p.ticker,
-      matchup: p.matchup,
-      team: p.team,
+      matchup: mlb ? mlbMatchup(p.matchup) : p.matchup,
+      team: mlb ? mlbTeam(p.team, p.ticker) : p.team,
       side: p.side,
       contracts: p.contracts,
       avg_price_c: Math.round((p.cost_c / p.contracts) * 10) / 10,
@@ -139,8 +141,8 @@ export async function getAccountState(userId: string): Promise<AccountState> {
     positions: positionStates,
     fills: (fills ?? []).map((f) => ({
       ts: f.ts,
-      matchup: f.matchup,
-      team: f.team,
+      matchup: isMlbTicker(f.ticker) ? mlbMatchup(f.matchup) : f.matchup,
+      team: isMlbTicker(f.ticker) ? mlbTeam(f.team, f.ticker) : f.team,
       side: f.side,
       action: f.action,
       count: f.count,

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { takerFeeCents } from "@/lib/fees";
 import type { Card } from "@/lib/kalshi/board";
 import type { Outcome } from "@/lib/kalshi/market";
-import type { AccountState } from "@/lib/account";
+import type { AccountState, PositionState } from "@/lib/account";
 
 // Refresh cadences (ms) and the per-tick ticker cap (bounds a huge / zoomed-out viewport).
 const FAST_MS = 1500; // viewport-scoped price refresh
@@ -48,13 +48,18 @@ function fmtDate(s: string): string {
 }
 
 type Side = "yes" | "no";
+type Action = "buy" | "sell";
+type Unit = "contracts" | "dollars"; // how the quantity field is entered
 interface ModalState {
   open: boolean;
   ticker: string | null;
   side: Side;
-  qty: string;
+  qty: string; // the raw field value, interpreted in `unit`
+  unit: Unit;
   err: string;
   busy: boolean;
+  position: boolean; // opened from a held position (Add / Trim) vs the board (buy Yes / No)
+  action: Action; // Add = buy, Trim = sell; only meaningful when position is true
 }
 
 export default function TradeTerminal({ username }: { username: string }) {
@@ -66,19 +71,28 @@ export default function TradeTerminal({ username }: { username: string }) {
   const [account, setAccount] = useState<AccountState | null>(null);
   const [connected, setConnected] = useState(true);
   const [loadingMarkets, setLoadingMarkets] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [sortBy, setSortBy] = useState<"vol" | "date">("vol");
   const [modal, setModal] = useState<ModalState>({
     open: false,
     ticker: null,
     side: "yes",
     qty: "10",
+    unit: "contracts",
     err: "",
     busy: false,
+    position: false,
+    action: "buy",
   });
   const [ticketQuote, setTicketQuote] = useState<Outcome | null>(null);
 
   const realistic = account?.realistic ?? false;
+  // The position behind an open Add/Trim ticket (source of the held count + avg cost).
+  const heldPos =
+    modal.position && account
+      ? account.positions.find((p) => p.ticker === modal.ticker && p.side === modal.side)
+      : undefined;
+  const held = heldPos?.contracts ?? 0;
   const modalOpenRef = useRef(false);
   modalOpenRef.current = modal.open;
   const overlayMouseDown = useRef(false);
@@ -162,7 +176,9 @@ export default function TradeTerminal({ username }: { username: string }) {
     loadMarkets(category);
     loadAccount();
     try {
-      setCollapsed(localStorage.getItem("paperCollapsed") === "1");
+      const stored = localStorage.getItem("paperCollapsed");
+      // Hidden by default; only an explicit "show" choice un-collapses it.
+      setCollapsed(stored === null ? true : stored === "1");
     } catch {
       /* ignore */
     }
@@ -267,16 +283,59 @@ export default function TradeTerminal({ username }: { username: string }) {
 
   function openTicket(ticker: string, side: Side, qty = "10") {
     setTicketQuote(null);
-    setModal({ open: true, ticker, side, qty, err: "", busy: false });
+    setModal({ open: true, ticker, side, qty, unit: "contracts", err: "", busy: false, position: false, action: "buy" });
+  }
+  // Clicking a held position opens an Add / Trim ticket on that exact side (defaults to Add).
+  function openPosition(p: PositionState) {
+    setTicketQuote(null);
+    setModal({
+      open: true,
+      ticker: p.ticker,
+      side: p.side as Side,
+      qty: "10",
+      unit: "contracts",
+      err: "",
+      busy: false,
+      position: true,
+      action: "buy",
+    });
   }
   function closeModal() {
     setModal((m) => ({ ...m, open: false }));
   }
 
-  async function confirmTrade() {
-    const qty = parseInt(modal.qty || "0", 10);
+  // Switch the quantity field between contracts and dollars, converting the current value at
+  // the live price so the order's economic size is preserved across the toggle.
+  function setUnit(unit: Unit, priceC: number | null) {
+    setModal((m) => {
+      if (m.unit === unit) return m;
+      let qty = m.qty;
+      if (priceC && priceC > 0) {
+        if (unit === "dollars") {
+          const c = parseInt(m.qty || "0", 10) || 0;
+          qty = c > 0 ? (Math.round(c * priceC) / 100).toFixed(2) : "";
+        } else {
+          const dollars = parseFloat(m.qty || "0") || 0;
+          const c = Math.floor((dollars * 100) / priceC);
+          qty = c > 0 ? String(c) : "";
+        }
+      }
+      return { ...m, unit, qty, err: "" };
+    });
+  }
+
+  // qty is always a resolved contract count (dollars-mode entry is converted before this).
+  async function confirmTrade(qty: number) {
     if (!(qty > 0)) {
-      setModal((m) => ({ ...m, err: "Enter a quantity." }));
+      setModal((m) => ({
+        ...m,
+        err: modal.unit === "dollars" ? "Enter an amount." : "Enter a quantity.",
+      }));
+      return;
+    }
+    const action: Action = modal.position ? modal.action : "buy";
+    if (action === "sell" && qty > held) {
+      setModal((m) => ({ ...m, err: `You only hold ${held}.` }));
       return;
     }
     setModal((m) => ({ ...m, busy: true, err: "" }));
@@ -287,7 +346,7 @@ export default function TradeTerminal({ username }: { username: string }) {
         body: JSON.stringify({
           ticker: modal.ticker,
           side: modal.side,
-          action: "buy",
+          action,
           count: qty,
         }),
       });
@@ -381,20 +440,29 @@ export default function TradeTerminal({ username }: { username: string }) {
 
   // trade-ticket summary (the live quote comes from the modal poll, falling back to the board)
   const ticket = ticketQuote ?? (modal.ticker ? boardMap.get(modal.ticker) : undefined);
-  const qtyNum = Math.max(0, parseInt(modal.qty || "0", 10) || 0);
+  const isTrim = modal.position && modal.action === "sell";
   let tPrice: number | null = null;
   if (ticket) {
-    tPrice = realistic
-      ? modal.side === "yes"
-        ? ticket.yes_ask_c
-        : ticket.no_ask_c
-      : modal.side === "yes"
-        ? ticket.yes_mid_c
-        : ticket.no_mid_c;
+    // Mirror lib/broker.fillPriceC: mid in perfect-liquidity mode; ask to buy / bid to sell when realistic.
+    if (!realistic) tPrice = modal.side === "yes" ? ticket.yes_mid_c : ticket.no_mid_c;
+    else if (isTrim) tPrice = modal.side === "yes" ? ticket.yes_bid_c : ticket.no_bid_c;
+    else tPrice = modal.side === "yes" ? ticket.yes_ask_c : ticket.no_ask_c;
   }
+  // Resolve the field to a contract count: in dollars mode, that's floor(amount / price-per-contract).
+  let qtyNum: number;
+  if (modal.unit === "dollars") {
+    const dollars = parseFloat(modal.qty || "0") || 0;
+    qtyNum = tPrice && tPrice > 0 ? Math.floor((dollars * 100) / tPrice) : 0;
+  } else {
+    qtyNum = Math.max(0, parseInt(modal.qty || "0", 10) || 0);
+  }
+  if (isTrim) qtyNum = Math.min(qtyNum, held);
   const tFee = tPrice != null && realistic ? takerFeeCents(qtyNum, tPrice) : 0;
   const tCost = tPrice != null ? qtyNum * tPrice + tFee : 0;
-  const priceLabel = realistic ? "ask" : "mid";
+  const tProceeds = tPrice != null ? qtyNum * tPrice - tFee : 0;
+  const tBasis = heldPos ? Math.round(heldPos.avg_price_c * qtyNum) : 0;
+  const tRealized = tProceeds - tBasis;
+  const priceLabel = !realistic ? "mid" : isTrim ? "bid" : "ask";
   const ticketLabel = ticket?.team || "Trade";
 
   return (
@@ -544,8 +612,8 @@ export default function TradeTerminal({ username }: { username: string }) {
                         <tr
                           key={p.ticker + ":" + p.side}
                           className="pos-row"
-                          title="Buy more of this position"
-                          onClick={() => openTicket(p.ticker, p.side as Side)}
+                          title="Add to or trim this position"
+                          onClick={() => openPosition(p)}
                         >
                           <td className="l">
                             <div className="mkt">
@@ -638,35 +706,100 @@ export default function TradeTerminal({ username }: { username: string }) {
           <div className="modal">
             <h3>{ticketLabel}</h3>
             <div className="mk">
-              {ticket
-                ? ticket.matchup +
-                  (ticket.close_time ? " · closes " + fmtDate(ticket.close_time) : "")
-                : "Fetching market…"}
+              {!ticket
+                ? "Fetching market…"
+                : modal.position
+                  ? `${ticket.matchup} · ${modal.side === "no" ? "No" : "Yes"} ×${held}`
+                  : ticket.matchup +
+                    (ticket.close_time ? " · closes " + fmtDate(ticket.close_time) : "")}
             </div>
-            <div className="seg">
-              <button
-                className={"yes" + (modal.side === "yes" ? " active" : "")}
-                onClick={() => setModal((m) => ({ ...m, side: "yes" }))}
-              >
-                Yes
-              </button>
-              <button
-                className={"no" + (modal.side === "no" ? " active" : "")}
-                onClick={() => setModal((m) => ({ ...m, side: "no" }))}
-              >
-                No
-              </button>
-            </div>
+            {modal.position ? (
+              <div className="seg">
+                <button
+                  className={"add" + (modal.action === "buy" ? " active" : "")}
+                  onClick={() => setModal((m) => ({ ...m, action: "buy", err: "" }))}
+                >
+                  Add
+                </button>
+                <button
+                  className={"trim" + (modal.action === "sell" ? " active" : "")}
+                  onClick={() =>
+                    setModal((m) => {
+                      // Default a fresh Trim to the full holding; keep a valid partial qty if set.
+                      const cur = parseInt(m.qty || "0", 10) || 0;
+                      const qty = cur > 0 && cur <= held ? m.qty : String(held);
+                      return { ...m, action: "sell", qty, err: "" };
+                    })
+                  }
+                >
+                  Trim
+                </button>
+              </div>
+            ) : (
+              <div className="seg">
+                <button
+                  className={"yes" + (modal.side === "yes" ? " active" : "")}
+                  onClick={() => setModal((m) => ({ ...m, side: "yes" }))}
+                >
+                  Yes
+                </button>
+                <button
+                  className={"no" + (modal.side === "no" ? " active" : "")}
+                  onClick={() => setModal((m) => ({ ...m, side: "no" }))}
+                >
+                  No
+                </button>
+              </div>
+            )}
             <div className="field">
-              <label>Quantity (contracts)</label>
+              <div className="field-hd">
+                <label>
+                  {modal.unit === "dollars" ? "Amount (dollars)" : "Quantity (contracts)"}
+                  {isTrim && held ? ` · holding ${held}` : ""}
+                </label>
+                <div className="unitseg" title="Enter the size in contracts or in dollars">
+                  <button
+                    className={modal.unit === "contracts" ? "active" : ""}
+                    onClick={() => setUnit("contracts", tPrice)}
+                  >
+                    Contracts
+                  </button>
+                  <button
+                    className={modal.unit === "dollars" ? "active" : ""}
+                    onClick={() => setUnit("dollars", tPrice)}
+                  >
+                    Dollars
+                  </button>
+                </div>
+              </div>
               <input
                 type="number"
-                min="1"
-                step="1"
+                min={modal.unit === "dollars" ? "0" : "1"}
+                step={modal.unit === "dollars" ? "0.01" : "1"}
+                max={modal.unit === "contracts" && isTrim && held ? held : undefined}
                 value={modal.qty}
-                onChange={(e) => setModal((m) => ({ ...m, qty: e.target.value }))}
+                onChange={(e) =>
+                  setModal((m) => {
+                    let v = e.target.value;
+                    // In contracts mode a Trim can't exceed the holding; clamp as the user types.
+                    if (m.unit === "contracts" && isTrim && held) {
+                      const n = parseInt(v || "0", 10);
+                      if (n > held) v = String(held);
+                    }
+                    return { ...m, qty: v };
+                  })
+                }
               />
             </div>
+            {isTrim && (
+              <button
+                className="sellall"
+                disabled={modal.busy || !held || !ticket || tPrice == null}
+                onClick={() => confirmTrade(held)}
+              >
+                Sell all {held} contract{held === 1 ? "" : "s"}
+              </button>
+            )}
             <div className="summary">
               {!ticket || tPrice == null ? (
                 <div className="r">
@@ -686,18 +819,37 @@ export default function TradeTerminal({ username }: { username: string }) {
                     <span>Est. fee</span>
                     <span>{money(tFee / 100)}</span>
                   </div>
-                  <div className="r">
-                    <span>
-                      <b>Est. cost</b>
-                    </span>
-                    <span>
-                      <b>{money(tCost / 100)}</b>
-                    </span>
-                  </div>
-                  <div className="r muted">
-                    <span>Max payout if it wins</span>
-                    <span>{money(qtyNum)}</span>
-                  </div>
+                  {isTrim ? (
+                    <>
+                      <div className="r">
+                        <span>
+                          <b>Est. proceeds</b>
+                        </span>
+                        <span>
+                          <b>{money(tProceeds / 100)}</b>
+                        </span>
+                      </div>
+                      <div className="r">
+                        <span>Est. realized P&amp;L</span>
+                        <span className={cls(tRealized)}>{signed(tRealized / 100)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="r">
+                        <span>
+                          <b>Est. cost</b>
+                        </span>
+                        <span>
+                          <b>{money(tCost / 100)}</b>
+                        </span>
+                      </div>
+                      <div className="r muted">
+                        <span>Max payout if it wins</span>
+                        <span>{money(qtyNum)}</span>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -707,11 +859,22 @@ export default function TradeTerminal({ username }: { username: string }) {
                 Cancel
               </button>
               <button
-                className={"confirm btn" + (modal.side === "no" ? " no" : "")}
+                className={
+                  "confirm btn" +
+                  (modal.position
+                    ? modal.action === "sell"
+                      ? " trim"
+                      : " add"
+                    : modal.side === "no"
+                      ? " no"
+                      : "")
+                }
                 disabled={modal.busy || !ticket || tPrice == null}
-                onClick={confirmTrade}
+                onClick={() => confirmTrade(qtyNum)}
               >
-                {"Buy " + (modal.side === "yes" ? "Yes" : "No")}
+                {modal.position
+                  ? (modal.action === "sell" ? "Trim " : "Add ") + qtyNum
+                  : "Buy " + (modal.side === "yes" ? "Yes" : "No")}
               </button>
             </div>
           </div>
