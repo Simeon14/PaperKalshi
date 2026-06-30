@@ -153,11 +153,21 @@ a {
 .btn.icon:hover{color:var(--text)}
 .brand{display:flex;flex-direction:column;gap:1px}
 .username{font-size:12px;color:var(--muted);margin-left:14px}
-.layout{display:grid;grid-template-columns:1fr 452px;gap:14px;padding:14px 20px 40px;align-items:start}
+.layout{display:grid;grid-template-columns:1fr 400px;gap:14px;padding:14px 20px 40px;align-items:start}
 .layout.solo{grid-template-columns:1fr}
 .right table td,.right table th{padding:7px 9px}
+.poswrap table,.blotwrap table{table-layout:fixed}
+.poswrap th:nth-child(1){width:40%}
+.poswrap th:nth-child(2){width:16%}
+.poswrap th:nth-child(3){width:13%}
+.poswrap th:nth-child(4){width:13%}
+.poswrap th:nth-child(5){width:18%}
+.blotwrap th:nth-child(1){width:16%}
+.blotwrap th:nth-child(2){width:46%}
+.blotwrap th:nth-child(3){width:19%}
+.blotwrap th:nth-child(4){width:19%}
 .mkt .team{font-weight:600;font-family:var(--sans)}
-.mkt .sub2{font-size:10.5px;color:var(--muted);font-family:var(--sans);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mkt .sub2{font-size:10.5px;color:var(--muted);font-family:var(--sans);max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:12px}
 .card>.hd{display:flex;justify-content:space-between;align-items:center;padding:11px 15px;border-bottom:1px solid var(--border)}
 .card>.hd h3{margin:0;font-size:13px;font-weight:600}
@@ -198,8 +208,8 @@ tbody tr:hover{background:var(--panel-2)}
 .gc-price.closed{color:var(--muted);cursor:default;border-color:var(--border);background:var(--panel);border-style:dashed}
 .gc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:9px;border-top:1px solid var(--border);font-size:11.5px;color:var(--muted)}
 .badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;font-family:var(--sans)}
-.badge.yes{background:rgba(91,140,255,.15);color:#9bb6ff}
-.badge.no{background:rgba(233,185,73,.15);color:#f0cd7a}
+.badge.yes{background:rgba(37,194,129,.16);color:#5fd6a4}
+.badge.no{background:rgba(255,93,93,.16);color:#ff9b9b}
 .badge.settle{background:rgba(139,145,158,.16);color:#aeb4bf}
 .empty{color:var(--muted);padding:22px;text-align:center;font-size:12.5px}
 .x{color:var(--muted);cursor:pointer;border:1px solid var(--border);background:var(--panel-2);border-radius:6px;padding:3px 9px;font-size:11px}
@@ -211,8 +221,8 @@ tbody tr:hover{background:var(--panel-2)}
 .modal .mk{color:var(--muted);font-size:12px;margin-bottom:14px}
 .seg{display:flex;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:14px}
 .seg button{flex:1;background:transparent;border:0;color:var(--muted);padding:9px 0;cursor:pointer;font-size:13px;font-weight:600}
-.seg button.active.yes{background:var(--accent);color:#0b0c0f}
-.seg button.active.no{background:var(--amber);color:#0b0c0f}
+.seg button.active.yes{background:var(--green);color:#0b0c0f}
+.seg button.active.no{background:var(--red);color:#0b0c0f}
 .field{margin-bottom:12px}
 .field label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px}
 .field input{width:100%;background:var(--panel-2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 11px;font-family:var(--mono);font-size:14px}
@@ -221,11 +231,8 @@ tbody tr:hover{background:var(--panel-2)}
 .err{color:var(--red);font-size:12px;min-height:16px;margin-bottom:8px}
 .actions{display:flex;gap:9px}
 .actions .btn{flex:1;text-align:center}
-.confirm{background:var(--accent);color:#0b0c0f;border:0;font-weight:650}
-.confirm.no{background:var(--amber)}
-.confirm.sell{background:var(--red);color:#0b0c0f}
-.seg button.active.buy{background:var(--green);color:#0b0c0f}
-.seg button.active.sell{background:var(--red);color:#0b0c0f}
+.confirm{background:var(--green);color:#0b0c0f;border:0;font-weight:650}
+.confirm.no{background:var(--red)}
 .switch{display:inline-flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
 .switch input{position:absolute;opacity:0;width:0;height:0}
 .switch .lbl{font-size:12px;color:var(--muted);transition:color .15s}
