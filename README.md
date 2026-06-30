@@ -4,7 +4,7 @@
 
 PaperKalshi is a self-hosted trading terminal for practicing on **real Kalshi
 markets** without risking real money. It streams live, public market data (no API key
-needed), lets you buy and sell contracts against the real top-of-book, charges the real
+needed), lets you buy and sell contracts against the real top-of-book, can charge the real
 Kalshi taker fee, and tracks your positions, P&L, and settlements, all stored locally on
 your machine.
 
@@ -24,8 +24,12 @@ your machine.
 - **Binary and multi-outcome events** — single-market games render both Yes and No pills
   so you can fade either side; multi-outcome races (e.g. a nominee field) list their top
   outcomes with a "+N more" roll-up.
-- **Realistic fills** — buys are marketable and fill at the ask, closes hit the bid, and
-  the real Kalshi taker fee (`ceil(0.07 · C · P · (1 − P))`) is applied to every order.
+- **Two fill models** — by default the simulator assumes perfect liquidity: buys and sells
+  fill at the mid with no bid/ask spread and no fees, so you can isolate your read on a
+  market from execution costs. Flip on **Realistic fills** in the topbar to model real
+  execution instead: buys are marketable and fill at the ask, closes hit the bid, and the
+  real Kalshi taker fee (`ceil(0.07 · C · P · (1 − P))`) is applied to every order. The
+  choice is persisted with your account.
 - **Live account** — cash, equity, realized and unrealized P&L, a collapsible positions
   panel with mark-to-market and one-click close, and a fill blotter.
 - **Automatic settlement** — open positions settle to $1/$0 when a market resolves.
@@ -75,9 +79,10 @@ category tab (e.g. `?cat=elections`) and `#compact` starts with the positions pa
   `api.elections.kalshi.com/trade-api/v2`); no account or key is required. Trending events
   and per-category cards are cached briefly and fetches are concurrency-capped so the app
   stays well within Kalshi's read rate limits.
-- **Trading is simulated locally.** When you place an order, the app pulls a fresh quote,
-  fills it against the live top-of-book, applies the taker fee, and updates your account.
-  Positions mark to the mid; resolved markets settle to $1/$0.
+- **Trading is simulated locally.** When you place an order, the app pulls a fresh quote and
+  fills it: at the mid with no fee by default, or against the live top-of-book with the
+  taker fee when **Realistic fills** is on. Positions mark to the mid; resolved markets
+  settle to $1/$0.
 - **Persistence** is a single SQLite file (`data/paper.db`, gitignored). It is created on
   first run with a fresh $100,000 account and survives restarts. "Reset account" (or
   deleting the file) returns you to a clean $100k.

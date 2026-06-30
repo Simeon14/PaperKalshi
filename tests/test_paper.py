@@ -32,6 +32,7 @@ def test_starts_with_100k(broker):
 
 def test_buy_then_mark_and_close(broker):
     m = _mkt()
+    broker.set_mode(True)  # realistic fills: lift the ask / hit the bid, with the taker fee
     fill = broker.trade(ticker=m.ticker, side="yes", action="buy", count=10, market=m)
     assert fill["price_c"] == 86 and fill["fee_c"] > 0
     s = broker.state({m.ticker: m})
@@ -63,6 +64,7 @@ def test_settle_win_and_loss(broker):
 
 def test_guard_rails(broker):
     m = _mkt(na=None, ya=99)
+    broker.set_mode(True)  # the "no ask" guard is a realistic-fill (top-of-book) rule
     # can't sell something you don't hold
     with pytest.raises(TradeError):
         broker.trade(ticker=m.ticker, side="yes", action="sell", count=1, market=m)
@@ -72,6 +74,60 @@ def test_guard_rails(broker):
     # insufficient funds: 100k account can't buy 2,000,000 contracts at 99c
     with pytest.raises(TradeError):
         broker.trade(ticker=m.ticker, side="yes", action="buy", count=2_000_000, market=m)
+
+
+def test_perfect_liquidity_is_the_default(broker):
+    m = _mkt()  # yes 84/86, no 14/16 -> yes mid 85, no mid 15
+    assert broker.state({})["realistic"] is False  # off by default
+    buy = broker.trade(ticker=m.ticker, side="yes", action="buy", count=10, market=m)
+    assert buy["price_c"] == 85 and buy["fee_c"] == 0  # mid, no spread, no fee
+    # bought at the mark, so no unrealized P&L and a round-trip is flat
+    assert broker.state({m.ticker: m})["positions"][0]["unrealized"] == 0.0
+    sell = broker.trade(ticker=m.ticker, side="yes", action="sell", count=10, market=m)
+    assert sell["price_c"] == 85 and sell["fee_c"] == 0 and sell["realized_c"] == 0
+    assert broker.state({})["cash"] == 100_000.0
+
+
+def test_realistic_mode_uses_ask_and_fee(broker):
+    m = _mkt()
+    broker.set_mode(True)
+    buy = broker.trade(ticker=m.ticker, side="yes", action="buy", count=10, market=m)
+    assert buy["price_c"] == 86 and buy["fee_c"] > 0  # lifts the ask, charges the taker fee
+
+
+def test_mode_persists_across_reopen(tmp_path):
+    db = tmp_path / "paper.db"
+    PaperBroker(db).set_mode(True)
+    assert PaperBroker(db).state({})["realistic"] is True
+
+
+def test_migrates_legacy_account_table(tmp_path):
+    import sqlite3
+    db = tmp_path / "legacy.db"
+    conn = sqlite3.connect(db)  # account table without the `realistic` column
+    conn.executescript(
+        "CREATE TABLE account (id INTEGER PRIMARY KEY CHECK (id=1), cash_c INTEGER NOT NULL,"
+        " starting_c INTEGER NOT NULL, realized_pnl_c INTEGER NOT NULL);"
+        "INSERT INTO account VALUES (1, 9999, 10000, 0);"
+    )
+    conn.commit(); conn.close()
+    s = PaperBroker(db).state({})
+    assert s["cash"] == 99.99 and s["realistic"] is False  # data preserved, column added
+
+
+def test_migrates_interim_frictionless_column(tmp_path):
+    import sqlite3
+    db = tmp_path / "interim.db"
+    PaperBroker(db)  # create at the current schema
+    # simulate an account table left by the interim version: a stray `frictionless` column
+    conn = sqlite3.connect(db)
+    conn.execute("ALTER TABLE account DROP COLUMN realistic")
+    conn.execute("ALTER TABLE account ADD COLUMN frictionless INTEGER NOT NULL DEFAULT 0")
+    conn.commit(); conn.close()
+    broker = PaperBroker(db)  # re-open triggers the migration
+    cols = {r["name"] for r in broker._conn.execute("PRAGMA table_info(account)")}
+    assert "frictionless" not in cols and "realistic" in cols
+    assert broker.state({})["realistic"] is False
 
 
 def test_reset(broker):

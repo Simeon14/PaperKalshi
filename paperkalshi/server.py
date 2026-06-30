@@ -100,6 +100,10 @@ class TradeRequest(BaseModel):
     count: int = Field(ge=1, le=100_000)
 
 
+class ModeRequest(BaseModel):
+    realistic: bool
+
+
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
     return (_STATIC / "trade.html").read_text(encoding="utf-8")
@@ -133,6 +137,14 @@ def trade(req: TradeRequest) -> dict:
     except TradeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"fill": fill, "account": _broker.state(_marks_and_settle())}
+
+
+@app.post("/api/mode")
+def set_mode(req: ModeRequest) -> dict:
+    """Choose realistic fills (ask/bid + fee) or the default perfect-liquidity mode.
+    Returns the refreshed account state."""
+    _broker.set_mode(req.realistic)
+    return _broker.state(_marks_and_settle())
 
 
 @app.post("/api/account/reset")

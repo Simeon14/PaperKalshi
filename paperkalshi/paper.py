@@ -2,9 +2,15 @@
 
 Models the part of Kalshi a trader actually touches: cash, per-(market, side) positions,
 a fill blotter, realized/unrealized P&L, and settlement to $1/$0 when a market resolves.
-Buys are marketable (fill at the ask), sells/closes hit the bid, and the real Kalshi taker
-fee applies. All mutations are serialized by a lock and committed, so the account survives
-restarts and concurrent requests.
+All mutations are serialized by a lock and committed, so the account survives restarts and
+concurrent requests.
+
+The account carries a **realistic** flag (an account-level setting, persisted like cash)
+that selects how orders fill. By default it is off and the broker simulates a perfectly
+liquid market: both buys and sells fill at the mid, with no bid/ask spread and no fee. Turn
+it on and fills become marketable instead: buys lift the ask, sells/closes hit the bid, and
+the real Kalshi taker fee applies. The flag is the single source of truth for fill
+behaviour, so it drives both the server fills and what the UI displays.
 """
 
 from __future__ import annotations
@@ -14,7 +20,7 @@ import threading
 import time
 from pathlib import Path
 
-from paperkalshi.fees import DEFAULT_TAKER, FeeModel
+from paperkalshi.fees import DEFAULT_MAKER, DEFAULT_TAKER, FeeModel
 from paperkalshi.kalshi_live import LiveMarket
 
 STARTING_CASH_C = 10_000_000  # $100,000.00
@@ -25,7 +31,8 @@ CREATE TABLE IF NOT EXISTS account (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     cash_c INTEGER NOT NULL,
     starting_c INTEGER NOT NULL,
-    realized_pnl_c INTEGER NOT NULL
+    realized_pnl_c INTEGER NOT NULL,
+    realistic INTEGER NOT NULL DEFAULT 0   -- 0 = perfect liquidity (default), 1 = realistic fills
 );
 CREATE TABLE IF NOT EXISTS positions (
     ticker TEXT NOT NULL,
@@ -59,9 +66,22 @@ class PaperBroker:
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
+        self._migrate()
         self._ensure_account()
 
     # ------------------------------------------------------------------ #
+    def _migrate(self) -> None:
+        """Bring an account table created by an earlier version up to the current schema."""
+        with self._lock:
+            cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(account)")}
+            if "frictionless" in cols:  # an interim column name, superseded by `realistic`
+                self._conn.execute("ALTER TABLE account DROP COLUMN frictionless")
+            if "realistic" not in cols:
+                self._conn.execute(
+                    "ALTER TABLE account ADD COLUMN realistic INTEGER NOT NULL DEFAULT 0"
+                )
+            self._conn.commit()
+
     def _ensure_account(self) -> None:
         with self._lock:
             row = self._conn.execute("SELECT 1 FROM account WHERE id=1").fetchone()
@@ -82,6 +102,15 @@ class PaperBroker:
             )
             self._conn.commit()
 
+    def set_mode(self, realistic: bool) -> None:
+        """Choose how orders fill: realistic (ask/bid + fee) or the default perfect-liquidity
+        mode (mid, no spread, no fee). Persisted with the account."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE account SET realistic=? WHERE id=1", (1 if realistic else 0,)
+            )
+            self._conn.commit()
+
     # ------------------------------------------------------------------ #
     def _account(self) -> sqlite3.Row:
         return self._conn.execute("SELECT * FROM account WHERE id=1").fetchone()
@@ -97,8 +126,14 @@ class PaperBroker:
 
     # ------------------------------------------------------------------ #
     @staticmethod
-    def _fill_price_c(action: str, side: str, m: LiveMarket) -> int | None:
-        """Marketable price: buys lift the ask, sells hit the bid."""
+    def _fill_price_c(action: str, side: str, m: LiveMarket, *, realistic: bool = True) -> int | None:
+        """The fill price in cents.
+
+        The default (perfect-liquidity) mode assumes no spread, so both sides fill at the
+        mid. Realistic mode is marketable: buys lift the ask, sells hit the bid.
+        """
+        if not realistic:
+            return m.yes_mid_c if side == "yes" else m.no_mid_c
         if action == "buy":
             return m.yes_ask_c if side == "yes" else m.no_ask_c
         return m.yes_bid_c if side == "yes" else m.no_bid_c
@@ -111,15 +146,16 @@ class PaperBroker:
             raise TradeError("count must be positive")
         if market.is_resolved:
             raise TradeError("market has resolved")
-        price = self._fill_price_c(action, side, market)
-        if price is None or not (1 <= price <= 99):
-            raise TradeError("no liquidity at the touch for that side")
 
         with self._lock:
             acct = self._account()
+            realistic = bool(acct["realistic"])
+            price = self._fill_price_c(action, side, market, realistic=realistic)
+            if price is None or not (1 <= price <= 99):
+                raise TradeError("no price available for that side")
             cash = acct["cash_c"]
             realized_total = acct["realized_pnl_c"]
-            fee = self._fee.fee_cents(count, price)
+            fee = (self._fee if realistic else DEFAULT_MAKER).fee_cents(count, price)
             realized = 0
 
             if action == "buy":
@@ -242,6 +278,7 @@ class PaperBroker:
             fills = [dict(r) for r in self._conn.execute(
                 "SELECT * FROM fills ORDER BY ts DESC LIMIT 40")]
             return {
+                "realistic": bool(acct["realistic"]),
                 "cash": round(cash / 100, 2),
                 "starting": round(acct["starting_c"] / 100, 2),
                 "positions_value": round(positions_value_c / 100, 2),
