@@ -2,7 +2,7 @@
 
 **Paper-trade live [Kalshi](https://kalshi.com) prediction markets with a fake $100,000 account.**
 
-PaperKalshi is a self-hosted trading terminal for practicing on **real Kalshi
+PaperKalshi is a self-hosted paper trading program for practicing on **real Kalshi
 markets** without risking real money. It streams live, public market data (no API key
 needed), lets you buy and sell contracts against the real top-of-book, can charge the real
 Kalshi taker fee, and tracks your positions, P&L, and settlements, all stored locally on
