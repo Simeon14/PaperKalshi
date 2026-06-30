@@ -16,6 +16,14 @@ dist/
 # Environment / secrets
 .env
 .env.*
+!.env.example
+
+# Node / Next.js
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+coverage/
 
 # Editors / OS
 .idea/
