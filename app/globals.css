@@ -170,12 +170,21 @@ tbody tr:hover{background:var(--panel-2)}
 .team{font-family:var(--sans);font-weight:600}
 .boardwrap{max-height:calc(100vh - 200px);overflow:auto;scrollbar-width:none}
 .boardwrap::-webkit-scrollbar{display:none}
-.poswrap,.blotwrap{overflow:auto}
+.poswrap,.blotwrap{overflow:auto;scrollbar-width:thin;scrollbar-color:#2a2f3a transparent}
+.poswrap::-webkit-scrollbar,.blotwrap::-webkit-scrollbar{width:8px;height:8px}
+.poswrap::-webkit-scrollbar-thumb,.blotwrap::-webkit-scrollbar-thumb{background:#2a2f3a;border-radius:4px}
+.poswrap::-webkit-scrollbar-track,.blotwrap::-webkit-scrollbar-track{background:transparent}
+.pos-row{cursor:pointer}
 .catbar{display:flex;gap:2px;padding:0 16px;border-bottom:1px solid var(--border);overflow-x:auto;background:var(--bg)}
 .catbar .cat{background:transparent;border:0;color:var(--muted);padding:12px 15px;cursor:pointer;font-size:13.5px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
 .catbar .cat:hover{color:var(--text)}
 .catbar .cat.active{color:var(--text);border-bottom-color:var(--accent)}
 .gc-more{font-size:11px;color:var(--muted);padding:5px 0 0}
+.hd-right{display:flex;align-items:center;gap:10px}
+.sortseg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.sortseg button{background:transparent;border:0;color:var(--muted);font-size:11px;padding:3px 9px;cursor:pointer;font-family:var(--sans)}
+.sortseg button:hover{color:var(--text)}
+.sortseg button.active{background:var(--panel-2);color:var(--text)}
 .board-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;padding:14px}
 .game-card{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;display:flex;flex-direction:column}
 .gc-head{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
@@ -184,9 +193,9 @@ tbody tr:hover{background:var(--panel-2)}
 .gc-team{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0}
 .gc-team .nm{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:7px}
 .gc-team .held{font-family:var(--mono);font-size:10px;color:#9bb6ff;border:1px solid #2c3550;background:rgba(91,140,255,.10);border-radius:6px;padding:1px 6px}
-.gc-price{font-family:var(--mono);font-weight:650;font-size:14px;color:#cfe0ff;border:1px solid var(--border);background:var(--panel);border-radius:999px;padding:7px 0;cursor:pointer;min-width:74px;text-align:center}
-.gc-price:hover{border-color:var(--accent);background:rgba(91,140,255,.13)}
-.gc-price.closed{color:var(--muted);cursor:default;border-style:dashed}
+.gc-price{font-family:var(--mono);font-weight:650;font-size:14px;color:#cfe0ff;border:1px solid var(--accent);background:rgba(91,140,255,.13);border-radius:999px;padding:7px 0;cursor:pointer;min-width:74px;text-align:center}
+.gc-price:hover{background:rgba(91,140,255,.22)}
+.gc-price.closed{color:var(--muted);cursor:default;border-color:var(--border);background:var(--panel);border-style:dashed}
 .gc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:9px;border-top:1px solid var(--border);font-size:11.5px;color:var(--muted)}
 .badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:11px;font-family:var(--sans)}
 .badge.yes{background:rgba(91,140,255,.15);color:#9bb6ff}
@@ -214,6 +223,9 @@ tbody tr:hover{background:var(--panel-2)}
 .actions .btn{flex:1;text-align:center}
 .confirm{background:var(--accent);color:#0b0c0f;border:0;font-weight:650}
 .confirm.no{background:var(--amber)}
+.confirm.sell{background:var(--red);color:#0b0c0f}
+.seg button.active.buy{background:var(--green);color:#0b0c0f}
+.seg button.active.sell{background:var(--red);color:#0b0c0f}
 .switch{display:inline-flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
 .switch input{position:absolute;opacity:0;width:0;height:0}
 .switch .lbl{font-size:12px;color:var(--muted);transition:color .15s}

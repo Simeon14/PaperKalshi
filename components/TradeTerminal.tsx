@@ -52,6 +52,7 @@ interface ModalState {
   open: boolean;
   ticker: string | null;
   side: Side;
+  action: "buy" | "sell";
   qty: string;
   err: string;
   busy: boolean;
@@ -67,14 +68,17 @@ export default function TradeTerminal({ username }: { username: string }) {
   const [connected, setConnected] = useState(true);
   const [loadingMarkets, setLoadingMarkets] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
+  const [sortBy, setSortBy] = useState<"vol" | "date">("vol");
   const [modal, setModal] = useState<ModalState>({
     open: false,
     ticker: null,
     side: "yes",
+    action: "buy",
     qty: "10",
     err: "",
     busy: false,
   });
+  const [ticketQuote, setTicketQuote] = useState<Outcome | null>(null);
 
   const realistic = account?.realistic ?? false;
   const modalOpenRef = useRef(false);
@@ -96,6 +100,21 @@ export default function TradeTerminal({ username }: { username: string }) {
     account?.positions.forEach((p) => m.set(p.ticker + ":" + p.side, p.contracts));
     return m;
   }, [account]);
+
+  const sortedCards = useMemo(() => {
+    const cs = [...cards];
+    if (sortBy === "date") {
+      // soonest close first; cards without a close time sink to the bottom
+      cs.sort((a, b) => {
+        if (!a.close_time) return 1;
+        if (!b.close_time) return -1;
+        return a.close_time < b.close_time ? -1 : a.close_time > b.close_time ? 1 : 0;
+      });
+    } else {
+      cs.sort((a, b) => b.vol - a.vol);
+    }
+    return cs;
+  }, [cards, sortBy]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -211,19 +230,33 @@ export default function TradeTerminal({ username }: { username: string }) {
     return () => clearInterval(id);
   }, [patchPrices]);
 
-  // Continuous price refresh for the open buy ticket's single market.
+  // Continuous price refresh for the open ticket's single market. Keeps its own quote so the
+  // ticket works even when that market isn't on the current board (e.g. selling a position
+  // held in another category).
   useEffect(() => {
-    if (!modal.open || !modal.ticker) return;
+    if (!modal.open || !modal.ticker) {
+      setTicketQuote(null);
+      return;
+    }
     const ticker = modal.ticker;
-    const id = setInterval(async () => {
+    let cancelled = false;
+    const tick = async () => {
       try {
         const r = await fetch("/api/quotes?fresh=1&tickers=" + encodeURIComponent(ticker));
-        if (r.ok) patchPrices((await r.json()).quotes || {});
+        if (!r.ok) return;
+        const quotes = (await r.json()).quotes || {};
+        patchPrices(quotes);
+        if (!cancelled && quotes[ticker]) setTicketQuote(quotes[ticker]);
       } catch {
         /* ignore */
       }
-    }, MODAL_MS);
-    return () => clearInterval(id);
+    };
+    tick();
+    const id = setInterval(tick, MODAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, [modal.open, modal.ticker, patchPrices]);
 
   function switchCategory(key: string, label: string) {
@@ -234,8 +267,9 @@ export default function TradeTerminal({ username }: { username: string }) {
     loadMarkets(key);
   }
 
-  function openTicket(ticker: string, side: Side) {
-    setModal({ open: true, ticker, side, qty: "10", err: "", busy: false });
+  function openTicket(ticker: string, side: Side, action: "buy" | "sell" = "buy", qty = "10") {
+    setTicketQuote(null);
+    setModal({ open: true, ticker, side, action, qty, err: "", busy: false });
   }
   function closeModal() {
     setModal((m) => ({ ...m, open: false }));
@@ -252,7 +286,12 @@ export default function TradeTerminal({ username }: { username: string }) {
       const r = await fetch("/api/trade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker: modal.ticker, side: modal.side, action: "buy", count: qty }),
+        body: JSON.stringify({
+          ticker: modal.ticker,
+          side: modal.side,
+          action: modal.action,
+          count: qty,
+        }),
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
@@ -266,26 +305,6 @@ export default function TradeTerminal({ username }: { username: string }) {
       setModal((m) => ({ ...m, err: e instanceof Error ? e.message : "Trade failed." }));
     } finally {
       setModal((m) => ({ ...m, busy: false }));
-    }
-  }
-
-  async function closePos(ticker: string, side: string, count: number) {
-    try {
-      const r = await fetch("/api/trade", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker, side, action: "sell", count }),
-      });
-      if (!r.ok) {
-        const e = await r.json().catch(() => ({}));
-        alert(e.error || "HTTP " + r.status);
-        return;
-      }
-      const d = await r.json();
-      setAccount(d.account);
-      loadMarkets(category);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Close failed.");
     }
   }
 
@@ -362,21 +381,21 @@ export default function TradeTerminal({ username }: { username: string }) {
       ]
     : [];
 
-  // trade-ticket summary
-  const ticket = modal.ticker ? boardMap.get(modal.ticker) : undefined;
+  // trade-ticket summary (the live quote comes from the modal poll, falling back to the board)
+  const ticket = ticketQuote ?? (modal.ticker ? boardMap.get(modal.ticker) : undefined);
   const qtyNum = Math.max(0, parseInt(modal.qty || "0", 10) || 0);
-  const tPrice = ticket
-    ? realistic
-      ? modal.side === "yes"
-        ? ticket.yes_ask_c
-        : ticket.no_ask_c
-      : modal.side === "yes"
-        ? ticket.yes_mid_c
-        : ticket.no_mid_c
-    : null;
+  const isSell = modal.action === "sell";
+  let tPrice: number | null = null;
+  if (ticket) {
+    if (!realistic) tPrice = modal.side === "yes" ? ticket.yes_mid_c : ticket.no_mid_c;
+    else if (isSell) tPrice = modal.side === "yes" ? ticket.yes_bid_c : ticket.no_bid_c;
+    else tPrice = modal.side === "yes" ? ticket.yes_ask_c : ticket.no_ask_c;
+  }
   const tFee = tPrice != null && realistic ? takerFeeCents(qtyNum, tPrice) : 0;
-  const tCost = tPrice != null ? qtyNum * tPrice + tFee : 0;
-  const ticketLabel = ticket?.team || "Yes";
+  const tTotal = tPrice != null ? (isSell ? qtyNum * tPrice - tFee : qtyNum * tPrice + tFee) : 0;
+  const priceLabel = realistic ? (isSell ? "bid" : "ask") : "mid";
+  const ticketLabel = ticket?.team || "Trade";
+  const held = posqty.get((modal.ticker ?? "") + ":" + modal.side) || 0;
 
   return (
     <>
@@ -429,24 +448,40 @@ export default function TradeTerminal({ username }: { username: string }) {
         <div className="card">
           <div className="hd">
             <h3>{catLabel === "MLB" ? "MLB markets" : catLabel}</h3>
-            <span className="sub">
-              {loadingMarkets && cards.length === 0
-                ? "loading…"
-                : connected
-                  ? `${cards.length} markets · live`
-                  : "market data unavailable"}
-            </span>
+            <div className="hd-right">
+              <span className="sub">
+                {loadingMarkets && cards.length === 0
+                  ? "loading…"
+                  : connected
+                    ? `${cards.length} markets · live`
+                    : "market data unavailable"}
+              </span>
+              <div className="sortseg" title="Sort markets by volume or date">
+                <button
+                  className={sortBy === "vol" ? "active" : ""}
+                  onClick={() => setSortBy("vol")}
+                >
+                  Vol
+                </button>
+                <button
+                  className={sortBy === "date" ? "active" : ""}
+                  onClick={() => setSortBy("date")}
+                >
+                  Date
+                </button>
+              </div>
+            </div>
           </div>
           <div className="boardwrap" ref={scrollRef}>
             <div className="board-grid">
-              {cards.length === 0 ? (
+              {sortedCards.length === 0 ? (
                 <div className="empty">
                   {loadingMarkets
                     ? `Loading ${catLabel}…`
                     : "No open markets in this category right now."}
                 </div>
               ) : (
-                cards.map((c) => {
+                sortedCards.map((c) => {
                   const sub = gameTime(c.id) || fmtDate(c.close_time) || "—";
                   const shown = c.outcomes.slice(0, 4);
                   let rows: React.ReactNode;
@@ -501,13 +536,19 @@ export default function TradeTerminal({ username }: { username: string }) {
                       <th>Avg</th>
                       <th>Mark</th>
                       <th>uP&amp;L</th>
-                      <th />
                     </tr>
                   </thead>
                   <tbody>
                     {account?.positions.length ? (
                       account.positions.map((p) => (
-                        <tr key={p.ticker + ":" + p.side}>
+                        <tr
+                          key={p.ticker + ":" + p.side}
+                          className="pos-row"
+                          title="Buy or sell this position"
+                          onClick={() =>
+                            openTicket(p.ticker, p.side as Side, "sell", String(p.contracts))
+                          }
+                        >
                           <td className="l">
                             <div className="mkt">
                               <span className="team">{p.team}</span>{" "}
@@ -519,16 +560,11 @@ export default function TradeTerminal({ username }: { username: string }) {
                           <td>{p.avg_price_c}¢</td>
                           <td>{p.mark_c == null ? "–" : p.mark_c + "¢"}</td>
                           <td className={cls(p.unrealized)}>{signed(p.unrealized)}</td>
-                          <td>
-                            <button className="x" onClick={() => closePos(p.ticker, p.side, p.contracts)}>
-                              Close
-                            </button>
-                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="empty">
+                        <td colSpan={5} className="empty">
                           No open positions. Click a price to back a team.
                         </td>
                       </tr>
@@ -610,12 +646,28 @@ export default function TradeTerminal({ username }: { username: string }) {
           if (e.target === e.currentTarget && overlayMouseDown.current) closeModal();
         }}
       >
-        {modal.open && ticket && (
+        {modal.open && (
           <div className="modal">
             <h3>{ticketLabel}</h3>
             <div className="mk">
-              {ticket.matchup}
-              {ticket.close_time ? " · closes " + fmtDate(ticket.close_time) : ""}
+              {ticket
+                ? ticket.matchup +
+                  (ticket.close_time ? " · closes " + fmtDate(ticket.close_time) : "")
+                : "Fetching market…"}
+            </div>
+            <div className="seg">
+              <button
+                className={(modal.action === "buy" ? "active " : "") + "buy"}
+                onClick={() => setModal((m) => ({ ...m, action: "buy" }))}
+              >
+                Buy
+              </button>
+              <button
+                className={(modal.action === "sell" ? "active " : "") + "sell"}
+                onClick={() => setModal((m) => ({ ...m, action: "sell" }))}
+              >
+                Sell
+              </button>
             </div>
             <div className="seg">
               <button
@@ -642,14 +694,14 @@ export default function TradeTerminal({ username }: { username: string }) {
               />
             </div>
             <div className="summary">
-              {tPrice == null ? (
+              {!ticket || tPrice == null ? (
                 <div className="r">
-                  <span>No price on that side.</span>
+                  <span>{ticket ? "No price on that side." : "Fetching price…"}</span>
                 </div>
               ) : (
                 <>
                   <div className="r">
-                    <span>Price ({realistic ? "ask" : "mid"})</span>
+                    <span>Price ({priceLabel})</span>
                     <span>{tPrice}¢</span>
                   </div>
                   <div className="r">
@@ -662,16 +714,25 @@ export default function TradeTerminal({ username }: { username: string }) {
                   </div>
                   <div className="r">
                     <span>
-                      <b>Est. cost</b>
+                      <b>{isSell ? "Est. proceeds" : "Est. cost"}</b>
                     </span>
                     <span>
-                      <b>{money(tCost / 100)}</b>
+                      <b>{money(tTotal / 100)}</b>
                     </span>
                   </div>
-                  <div className="r muted">
-                    <span>Max payout if it wins</span>
-                    <span>{money(qtyNum)}</span>
-                  </div>
+                  {isSell ? (
+                    <div className="r muted">
+                      <span>You hold</span>
+                      <span>
+                        {held} {modal.side.toUpperCase()}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="r muted">
+                      <span>Max payout if it wins</span>
+                      <span>{money(qtyNum)}</span>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -681,11 +742,11 @@ export default function TradeTerminal({ username }: { username: string }) {
                 Cancel
               </button>
               <button
-                className={"confirm btn" + (modal.side === "no" ? " no" : "")}
-                disabled={modal.busy}
+                className={"confirm btn" + (isSell ? " sell" : modal.side === "no" ? " no" : "")}
+                disabled={modal.busy || !ticket || tPrice == null}
                 onClick={confirmTrade}
               >
-                {modal.side === "yes" ? `Buy YES (${ticketLabel})` : `Buy NO (fade ${ticketLabel})`}
+                {(isSell ? "Sell " : "Buy ") + (modal.side === "yes" ? "Yes" : "No")}
               </button>
             </div>
           </div>
