@@ -23,17 +23,6 @@ const signed = (v: number) => (v >= 0 ? "+" : "") + money(v);
 const fmtVol = (v: number) =>
   v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? Math.round(v / 1e3) + "k" : String(v);
 
-// MLB game time is encoded in the event ticker: KXMLBGAME-26JUN271905<AWAY><HOME>.
-function gameTime(ev: string): string {
-  const m = (ev || "").match(/KXMLBGAME-(\d{2})([A-Z]{3})(\d{2})(\d{2})(\d{2})/);
-  if (!m) return "";
-  const mon = m[2][0] + m[2].slice(1).toLowerCase();
-  let h = parseInt(m[4], 10);
-  const mm = m[5];
-  const ap = h >= 12 ? "PM" : "AM";
-  h = h % 12 || 12;
-  return `${mon} ${parseInt(m[3], 10)} · ${h}:${mm} ${ap}`;
-}
 function fmtDate(s: string): string {
   if (!s) return "";
   try {
@@ -45,6 +34,74 @@ function fmtDate(s: string): string {
   } catch {
     return "";
   }
+}
+
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+// The game date is encoded in the event ticker after the series prefix: MLB
+// "KXMLBGAME-26JUN271905STLCHC" (date + HHMM), World Cup "KXWCTOTAL-26JUL05BRANOR" (date only).
+const EVENT_RE =
+  /-(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})(\d{2})?(\d{2})?(?=[A-Z]|$)/;
+
+// An event's start as a sortable timestamp + display label. Kalshi's close_time is unreliable
+// for World Cup (it can sit ~2 weeks past the match), so the ticker date is authoritative; we
+// only fall back to close_time when the ticker has no game date (futures / season-long markets).
+function eventStart(id: string, closeTime: string): { ts: number; label: string } {
+  const m = (id || "").match(EVENT_RE);
+  if (m) {
+    const yy = parseInt(m[1], 10);
+    const mon = MONTHS.indexOf(m[2]);
+    const dd = parseInt(m[3], 10);
+    const hasTime = m[4] != null && m[5] != null;
+    const hh = hasTime ? parseInt(m[4], 10) : 0;
+    const mm = hasTime ? parseInt(m[5], 10) : 0;
+    const ts = Date.UTC(2000 + yy, mon, dd, hh, mm);
+    const monName = m[2][0] + m[2].slice(1).toLowerCase();
+    let label = `${monName} ${dd}`;
+    if (hasTime) label += ` · ${hh % 12 || 12}:${m[5]} ${hh >= 12 ? "PM" : "AM"}`;
+    return { ts, label };
+  }
+  const parsed = closeTime ? Date.parse(closeTime) : NaN;
+  return {
+    ts: Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed,
+    label: fmtDate(closeTime) || "—",
+  };
+}
+
+// Deterministic ordering (ties broken by id). Applied to establish the board's order on first
+// load / category switch / sort toggle, and to place newly-appeared cards among themselves.
+// It is NOT re-run on every refresh: once the board is shown its order is frozen, so live
+// volume/price changes don't reshuffle it (see loadMarkets' merge path).
+function sortCards(cards: Card[], sortBy: "vol" | "date"): Card[] {
+  const byId = (a: Card, b: Card) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const cs = [...cards];
+  if (sortBy === "date") {
+    cs.sort((a, b) => {
+      const ta = eventStart(a.id, a.close_time).ts;
+      const tb = eventStart(b.id, b.close_time).ts;
+      return ta !== tb ? ta - tb : byId(a, b);
+    });
+  } else {
+    cs.sort((a, b) => (b.vol !== a.vol ? b.vol - a.vol : byId(a, b)));
+  }
+  return cs;
+}
+
+// The market-type header already conveys the market, so drop the noisy "... Reg Time:" prefix
+// from each outcome label inside a match view: "Reg Time: England" -> "England",
+// "Goal Diff Reg Time: England wins by more than 1.5 goals" -> "England wins by more than 1.5 goals".
+const wcLabel = (s: string) => (s || "").replace(/^.*?Reg(?:ulation)?\s*Time:\s*/i, "").trim();
+
+// Split a match card's outcomes into [marketTypeLabel, outcomes][] preserving the server order
+// (primary market first). The primary group (index 0) is the "match odds" shown inline.
+function groupOutcomes(outcomes: Outcome[]): [string, Outcome[]][] {
+  const map = new Map<string, Outcome[]>();
+  for (const o of outcomes) {
+    const k = o.group ?? "Markets";
+    const arr = map.get(k);
+    if (arr) arr.push(o);
+    else map.set(k, [o]);
+  }
+  return [...map.entries()];
 }
 
 type Side = "yes" | "no";
@@ -65,8 +122,8 @@ interface ModalState {
 export default function TradeTerminal({ username }: { username: string }) {
   const router = useRouter();
   const [categories, setCategories] = useState<{ key: string; label: string }[]>([]);
-  const [category, setCategory] = useState("mlb");
-  const [catLabel, setCatLabel] = useState("MLB");
+  const [category, setCategory] = useState("worldcup");
+  const [catLabel, setCatLabel] = useState("World Cup");
   const [cards, setCards] = useState<Card[]>([]);
   const [account, setAccount] = useState<AccountState | null>(null);
   const [connected, setConnected] = useState(true);
@@ -85,6 +142,7 @@ export default function TradeTerminal({ username }: { username: string }) {
     action: "buy",
   });
   const [ticketQuote, setTicketQuote] = useState<Outcome | null>(null);
+  const [outcomesId, setOutcomesId] = useState<string | null>(null);
 
   const realistic = account?.realistic ?? false;
   // The position behind an open Add/Trim ticket (source of the held count + avg cost).
@@ -98,6 +156,8 @@ export default function TradeTerminal({ username }: { username: string }) {
   const overlayMouseDown = useRef(false);
   const cardsRef = useRef<Card[]>(cards);
   cardsRef.current = cards;
+  const sortByRef = useRef(sortBy);
+  sortByRef.current = sortBy;
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const visibleIds = useRef<Set<string>>(new Set());
 
@@ -107,26 +167,26 @@ export default function TradeTerminal({ username }: { username: string }) {
     return m;
   }, [cards]);
 
+  // The card whose full-outcomes menu is open (looked up live so its prices keep refreshing).
+  const outcomesCard = outcomesId ? cards.find((c) => c.id === outcomesId) ?? null : null;
+  // Match popup: one column per market, capped at 3, so its width tracks the number of markets
+  // (a 1-market card is skinny; a full match with ~15 markets fills 3 columns).
+  const matchSections = outcomesCard?.grouped ? groupOutcomes(outcomesCard.outcomes) : null;
+  const matchCols = matchSections ? Math.min(Math.max(matchSections.length, 1), 3) : 1;
+  const matchWidth = matchCols * 320 + (matchCols - 1) * 24 + 36; // col*320 + gaps + modal padding
+
   const posqty = useMemo(() => {
     const m = new Map<string, number>();
     account?.positions.forEach((p) => m.set(p.ticker + ":" + p.side, p.contracts));
     return m;
   }, [account]);
 
-  const sortedCards = useMemo(() => {
-    const cs = [...cards];
-    if (sortBy === "date") {
-      // soonest close first; cards without a close time sink to the bottom
-      cs.sort((a, b) => {
-        if (!a.close_time) return 1;
-        if (!b.close_time) return -1;
-        return a.close_time < b.close_time ? -1 : a.close_time > b.close_time ? 1 : 0;
-      });
-    } else {
-      cs.sort((a, b) => b.vol - a.vol);
-    }
-    return cs;
-  }, [cards, sortBy]);
+  // Per-card start time + label (memoized so the rendered date matches the sort key).
+  const timing = useMemo(() => {
+    const m = new Map<string, { ts: number; label: string }>();
+    cards.forEach((c) => m.set(c.id, eventStart(c.id, c.close_time)));
+    return m;
+  }, [cards]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -137,16 +197,35 @@ export default function TradeTerminal({ username }: { username: string }) {
     }
   }, []);
 
-  const loadMarkets = useCallback(async (cat: string) => {
-    setLoadingMarkets(true);
+  // `replace` = re-sort from scratch (first load, category switch, sort toggle). Otherwise the
+  // periodic refetch MERGES: existing cards keep their on-screen position (their data is
+  // refreshed in place), closed cards drop out, and genuinely-new markets are appended at the
+  // bottom (visible on scroll). So the board loads once and its order stays fixed thereafter,
+  // rather than reshuffling every time volumes tick.
+  const loadMarkets = useCallback(async (cat: string, replace = false) => {
+    if (replace) setLoadingMarkets(true);
     try {
       const d = await (await fetch("/api/markets?category=" + encodeURIComponent(cat))).json();
-      setCards(d.cards || []);
+      const apiCards: Card[] = d.cards || [];
+      setCards((prev) => {
+        if (replace || prev.length === 0) return sortCards(apiCards, sortByRef.current);
+        const apiIds = new Set(apiCards.map((c) => c.id));
+        const existing = new Set(prev.map((c) => c.id));
+        // Survivors keep their existing object (and thus their live-patched prices) and their
+        // on-screen position; only genuinely-new markets are pulled in, sorted among themselves
+        // and appended at the bottom. Closed markets drop out.
+        const kept = prev.filter((c) => apiIds.has(c.id));
+        const added = sortCards(
+          apiCards.filter((c) => !existing.has(c.id)),
+          sortByRef.current,
+        );
+        return [...kept, ...added];
+      });
       setConnected(true);
     } catch {
       setConnected(false);
     } finally {
-      setLoadingMarkets(false);
+      if (replace) setLoadingMarkets(false);
     }
   }, []);
 
@@ -173,7 +252,7 @@ export default function TradeTerminal({ username }: { username: string }) {
   // initial load
   useEffect(() => {
     loadCategories();
-    loadMarkets(category);
+    loadMarkets(category, true);
     loadAccount();
     try {
       const stored = localStorage.getItem("paperCollapsed");
@@ -192,6 +271,11 @@ export default function TradeTerminal({ username }: { username: string }) {
     }, STRUCTURE_MS);
     return () => clearInterval(id);
   }, [category, loadMarkets]);
+
+  // Re-sort the visible board only when the user flips the Vol/Date toggle (not on refresh).
+  useEffect(() => {
+    setCards((prev) => (prev.length ? sortCards(prev, sortBy) : prev));
+  }, [sortBy]);
 
   // Account / positions.
   useEffect(() => {
@@ -228,7 +312,12 @@ export default function TradeTerminal({ username }: { username: string }) {
       const ids = visibleIds.current;
       const tickers: string[] = [];
       for (const c of cardsRef.current) {
-        if (ids.has(c.id)) for (const o of c.outcomes) tickers.push(o.ticker);
+        if (!ids.has(c.id)) continue;
+        // A match card only shows its primary market inline, so only refresh that (its other
+        // markets refresh via the popup's own poll); otherwise one match card's ~80 outcomes
+        // would blow the whole per-tick budget and starve the rest of the board.
+        const g = c.grouped && c.outcomes.length ? c.outcomes[0].group : undefined;
+        for (const o of c.outcomes) if (!g || o.group === g) tickers.push(o.ticker);
       }
       if (!tickers.length) return;
       try {
@@ -273,16 +362,41 @@ export default function TradeTerminal({ username }: { username: string }) {
     };
   }, [modal.open, modal.ticker, patchPrices]);
 
+  // While a markets popup is open, keep ALL of that card's markets live (the board tick only
+  // refreshes each card's primary market).
+  useEffect(() => {
+    if (!outcomesId) return;
+    const card = cardsRef.current.find((c) => c.id === outcomesId);
+    const tickers = card?.outcomes.map((o) => o.ticker) ?? [];
+    if (!tickers.length) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await fetch("/api/quotes?tickers=" + encodeURIComponent(tickers.slice(0, 50).join(",")));
+        if (r.ok && !cancelled) patchPrices((await r.json()).quotes || {});
+      } catch {
+        /* ignore */
+      }
+    };
+    tick();
+    const id = setInterval(tick, FAST_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [outcomesId, patchPrices]);
+
   function switchCategory(key: string, label: string) {
     if (key === category) return;
     setCategory(key);
     setCatLabel(label);
     setCards([]);
-    loadMarkets(key);
+    loadMarkets(key, true);
   }
 
   function openTicket(ticker: string, side: Side, qty = "10") {
     setTicketQuote(null);
+    setOutcomesId(null);
     setModal({ open: true, ticker, side, qty, unit: "contracts", err: "", busy: false, position: false, action: "buy" });
   }
   // Clicking a held position opens an Add / Trim ticket on that exact side (defaults to Add).
@@ -404,7 +518,13 @@ export default function TradeTerminal({ username }: { username: string }) {
     const px = realistic ? ask : side === "yes" ? o.yes_mid_c : o.no_mid_c;
     if (o.tradeable && px != null && px >= 1 && px <= 99) {
       return (
-        <span className="gc-price" onClick={() => openTicket(o.ticker, side)}>
+        <span
+          className="gc-price"
+          onClick={(e) => {
+            e.stopPropagation(); // bet, don't also open the match popup on grouped cards
+            openTicket(o.ticker, side);
+          }}
+        >
           {px}¢
         </span>
       );
@@ -542,15 +662,42 @@ export default function TradeTerminal({ username }: { username: string }) {
           </div>
           <div className="boardwrap" ref={scrollRef}>
             <div className="board-grid">
-              {sortedCards.length === 0 ? (
+              {cards.length === 0 ? (
                 <div className="empty">
                   {loadingMarkets
                     ? `Loading ${catLabel}…`
                     : "No open markets in this category right now."}
                 </div>
               ) : (
-                sortedCards.map((c) => {
-                  const sub = gameTime(c.id) || fmtDate(c.close_time) || "—";
+                cards.map((c) => {
+                  const sub = timing.get(c.id)?.label ?? "—";
+                  // Match card: show ONLY the primary market (the match odds) inline, like a
+                  // normal card; clicking the card body opens the full-markets popup (Kalshi-style).
+                  if (c.grouped) {
+                    const primary = groupOutcomes(c.outcomes)[0]?.[1] ?? [];
+                    return (
+                      <div
+                        className="game-card match-card"
+                        key={c.id}
+                        data-card-id={c.id}
+                        onClick={() => setOutcomesId(c.id)}
+                        title="View all markets for this match"
+                      >
+                        <div className="gc-head">{catLabel}</div>
+                        <div className="gc-title">{c.title}</div>
+                        <div className="gc-status">{sub}</div>
+                        {primary
+                          .slice(0, 4)
+                          .map((o) => teamRow(o, "yes", wcLabel(o.team) || "Yes", c.id + ":" + o.ticker))}
+                        <div className="gc-foot">
+                          <span>{fmtVol(c.vol)} vol</span>
+                          <span className="match-cta">
+                            {c.market_count} market{c.market_count > 1 ? "s" : ""} ›
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
                   const shown = c.outcomes.slice(0, 4);
                   let rows: React.ReactNode;
                   let more: React.ReactNode = null;
@@ -563,8 +710,13 @@ export default function TradeTerminal({ username }: { username: string }) {
                     ];
                   } else {
                     rows = shown.map((o) => teamRow(o, "yes", o.team || "Yes", c.id + ":" + o.ticker));
-                    if (c.market_count > shown.length) {
-                      more = <div className="gc-more">+{c.market_count - shown.length} more outcomes</div>;
+                    const hidden = c.outcomes.length - shown.length;
+                    if (hidden > 0) {
+                      more = (
+                        <button className="gc-more" onClick={() => setOutcomesId(c.id)}>
+                          +{hidden} more outcome{hidden > 1 ? "s" : ""}
+                        </button>
+                      );
                     }
                   }
                   return (
@@ -689,6 +841,60 @@ export default function TradeTerminal({ username }: { username: string }) {
             </div>
           </div>
         )}
+      </div>
+
+      <div
+        className={"overlay" + (outcomesCard ? " show" : "")}
+        onMouseDown={(e) => {
+          overlayMouseDown.current = e.target === e.currentTarget;
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && overlayMouseDown.current) setOutcomesId(null);
+        }}
+      >
+        {outcomesCard &&
+          (outcomesCard.grouped ? (
+            <div className="modal match-modal" style={{ width: `min(${matchWidth}px, 94vw)` }}>
+              <div className="pf-head">
+                <div>
+                  <h3>{outcomesCard.title}</h3>
+                  <div className="mk">
+                    {outcomesCard.market_count} market{outcomesCard.market_count > 1 ? "s" : ""}
+                    {outcomesCard.close_time ? " · " + fmtDate(outcomesCard.close_time) : ""}
+                  </div>
+                </div>
+                <button className="btn" onClick={() => setOutcomesId(null)}>
+                  Close
+                </button>
+              </div>
+              <div className="match-sections">
+                {(matchSections ?? []).map(([label, outs]) => (
+                  <div className="mkt-group" key={label}>
+                    <div className="mkt-group-hd">{label}</div>
+                    {outs.map((o) => teamRow(o, "yes", wcLabel(o.team) || "Yes", "menu:" + o.ticker))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="modal outcomes-modal">
+              <h3>{outcomesCard.title}</h3>
+              <div className="mk">
+                {outcomesCard.market_count} outcomes
+                {outcomesCard.close_time ? " · closes " + fmtDate(outcomesCard.close_time) : ""}
+              </div>
+              <div className="outcomes-list">
+                {outcomesCard.outcomes.map((o) =>
+                  teamRow(o, "yes", o.team || "Yes", "menu:" + o.ticker),
+                )}
+              </div>
+              <div className="actions">
+                <button className="btn" onClick={() => setOutcomesId(null)}>
+                  Close
+                </button>
+              </div>
+            </div>
+          ))}
       </div>
 
       <div

@@ -3,8 +3,10 @@
 import {
   LiveMarket,
   Outcome,
+  isTradeable,
   toLive,
   toOutcome,
+  yesMidC,
 } from "@/lib/kalshi/market";
 import {
   getMarketRaw,
@@ -12,6 +14,11 @@ import {
   listEventsRaw,
   listSeriesRaw,
 } from "@/lib/kalshi/client";
+import { isMlbTicker, mlbMatchup } from "@/lib/kalshi/mlb";
+
+// Cards carry every priced outcome so the client can list them all (the "+N more" menu);
+// the display only renders the first few inline. Large enough for any real event's field.
+const MAX_OUTCOMES = 100;
 
 export interface Category {
   key: string;
@@ -28,6 +35,7 @@ interface CategoryCfg {
   exclude_tags?: string[];
   series_scan?: number;
   max_series?: number;
+  group_by_match?: boolean; // group a match's many market-type events into one match card
   ttl: number;
 }
 
@@ -35,17 +43,31 @@ export interface Card {
   id: string;
   title: string;
   vol: number;
-  market_count: number;
+  market_count: number; // grouped cards: number of markets (market types); else outcomes
   close_time: string;
-  outcomes: Outcome[];
+  outcomes: Outcome[]; // grouped cards: every market's outcomes, ordered by group then odds,
+  //                      each tagged with `group`; the first group is the primary (match odds)
+  grouped?: boolean; // a match card: card body opens the full-markets popup, inline shows primary
 }
 
 const CATEGORIES: CategoryCfg[] = [
-  { key: "mlb", label: "MLB", source: "series", series: ["KXMLBGAME"], ttl: 8 },
   {
-    key: "worldcup", label: "World Cup", source: "series", category: "Sports",
-    series_prefix: "KXWC", exclude_tags: ["Esports"], series_scan: 400, max_series: 18, ttl: 90,
+    key: "worldcup", label: "World Cup", source: "series",
+    // Curated set of the primary, high-volume soccer markets. There are ~109 KXWC* series and
+    // Kalshi returns them in a DIFFERENT random order on every call, so the old "scan + take the
+    // first 18" made the board fetch a different set of markets each refresh (hence it reshuffled
+    // constantly and was never really sorted). Explicit series make the board deterministic and
+    // stable, and avoid false-positive prefix matches ("West Coast Conference", esports "Warzone").
+    series: [
+      "KXWCADVANCE", "KXWCROUND", "KXWCSPREAD", "KXWCGAME", "KXWCTOTAL",
+      "KXWCSCORE", "KXWC1H", "KXWCBTTS", "KXWCTEAMTOTAL", "KXWC1HTOTAL",
+      "KXWCCORNERS", "KXWCTCORNERS", "KXWC1HSPREAD", "KXWCSOA", "KXWC1HSCORE",
+      "KXWCFTTS", "KXWCSTAGEOFELIM",
+    ],
+    group_by_match: true,
+    ttl: 45,
   },
+  { key: "mlb", label: "MLB", source: "series", series: ["KXMLBGAME"], ttl: 8 },
   { key: "elections", label: "Elections", source: "trending", category: "Elections", ttl: 60 },
   { key: "politics", label: "Politics", source: "trending", category: "Politics", ttl: 60 },
   { key: "finance", label: "Finance", source: "trending", category: "Financials", ttl: 60 },
@@ -78,21 +100,29 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R
   return out;
 }
 
-const askKey = (m: LiveMarket): number => m.yes_ask_c ?? m.last_c ?? -1;
+// A market is BUYABLE when it's active with a live YES mid in 1..99 (a real price you can trade
+// at). The board only ever lists buyable outcomes; non-tradeable ones (no real offer on the
+// book, only a stale last price) are dropped entirely rather than shown greyed.
+function isBuyable(m: LiveMarket): boolean {
+  const mid = yesMidC(m);
+  return isTradeable(m) && mid != null && mid >= 1 && mid <= 99;
+}
+// Highest YES odds first (every listed outcome is buyable, so yesMidC is a real 1..99 price).
+const oddsKey = (m: LiveMarket): number => yesMidC(m) ?? 0;
 const minCloseTime = (markets: LiveMarket[]): string => {
   const times = markets.map((m) => m.close_time).filter(Boolean).sort();
   return times.length ? times[0] : "";
 };
-const priced = (m: LiveMarket): boolean =>
-  m.yes_ask_c !== null || m.yes_bid_c !== null || m.last_c !== null;
-
-async function marketsForSeries(series: string, ttl: number): Promise<LiveMarket[]> {
+// Fetch a series' open events WITH their nested markets in one call. Unlike /markets, the
+// event carries a human title ("France vs Sweden: ...", "San Diego vs Los Angeles D") which
+// is what names the card, so every card says which game/match it's for.
+async function eventsForSeries(series: string, ttl: number): Promise<any[]> {
   try {
-    const payload = await getMarketsRaw(
-      { series_ticker: series, status: "open", limit: 200 },
+    const payload = await listEventsRaw(
+      { series_ticker: series, status: "open", with_nested_markets: true, limit: 200 },
       { revalidate: ttl },
     );
-    return (payload.markets ?? []).map(toLive);
+    return payload.events ?? [];
   } catch {
     return []; // one bad series shouldn't sink the board
   }
@@ -117,41 +147,104 @@ async function seriesFor(cfg: CategoryCfg): Promise<string[]> {
   }
   const seen = new Set<string>();
   const uniq = out.filter((t) => (seen.has(t) ? false : (seen.add(t), true)));
-  return uniq.slice(0, cfg.max_series ?? 30);
-}
-
-function cardsFromMarkets(markets: LiveMarket[], maxCards = 36, maxOutcomes = 6): Card[] {
-  const byEvent = new Map<string, LiveMarket[]>();
-  for (const m of markets) {
-    const arr = byEvent.get(m.event_ticker) ?? [];
-    arr.push(m);
-    byEvent.set(m.event_ticker, arr);
-  }
-  const cards: Card[] = [];
-  for (const [ev, mk] of byEvent) {
-    const ordered = [...mk].sort((a, b) => askKey(b) - askKey(a));
-    cards.push({
-      id: ev,
-      title: mk[0].matchup,
-      vol: Math.max(0, ...mk.map((m) => m.volume)),
-      market_count: mk.length,
-      close_time: minCloseTime(mk),
-      outcomes: ordered.slice(0, maxOutcomes).map(toOutcome),
-    });
-  }
-  cards.sort((a, b) => b.vol - a.vol);
-  return cards.slice(0, maxCards);
+  // Sort so the selected series are the SAME on every call (Kalshi's series order is not stable);
+  // otherwise a capped scan picks a different subset each refresh and the board churns.
+  uniq.sort();
+  return uniq.slice(0, cfg.max_series ?? 40);
 }
 
 async function fetchSeriesCards(key: string): Promise<Card[]> {
   const cfg = CATEGORY_BY_KEY[key] ?? CATEGORY_BY_KEY["mlb"];
   const series = await seriesFor(cfg);
-  let markets: LiveMarket[] = [];
-  if (series.length) {
-    const lists = await mapLimit(series, 6, (s) => marketsForSeries(s, cfg.ttl));
-    markets = lists.flat();
+  if (!series.length) return [];
+  const lists = await mapLimit(series, 6, (s) => eventsForSeries(s, cfg.ttl));
+  const events = lists.flat();
+  if (cfg.group_by_match) return matchCardsFromEvents(events);
+  const cards = events.map(cardFromEvent).filter((c): c is Card => c !== null);
+  cards.sort((a, b) => b.vol - a.vol);
+  return cards.slice(0, 36);
+}
+
+// Clean, short labels for each World Cup market type (keyed by the event ticker's series prefix).
+// Falls back to the event title after its "Match: " prefix, then the raw title.
+const WC_TYPE: Record<string, string> = {
+  KXWCGAME: "Moneyline",
+  KXWCADVANCE: "To Advance",
+  KXWCSPREAD: "Spread",
+  KXWCTOTAL: "Total Goals",
+  KXWCSCORE: "Correct Score",
+  KXWCBTTS: "Both Teams to Score",
+  KXWCTEAMTOTAL: "Team Total Goals",
+  KXWC1H: "1st Half Result",
+  KXWC1HTOTAL: "1st Half Total Goals",
+  KXWC1HSCORE: "1st Half Correct Score",
+  KXWC1HSPREAD: "1st Half Spread",
+  KXWCCORNERS: "Corners",
+  KXWCTCORNERS: "Team Corners",
+  KXWCSOA: "Score or Assist",
+  KXWCFTTS: "First Team to Score",
+  KXWCROUND: "Reach Round",
+  KXWCSTAGEOFELIM: "Stage of Elimination",
+};
+
+function marketTypeLabel(ev: any): string {
+  const prefix = String(ev.event_ticker ?? "").split("-")[0];
+  if (WC_TYPE[prefix]) return WC_TYPE[prefix];
+  const title = String(ev.title ?? "");
+  const i = title.indexOf(": ");
+  return (i >= 0 ? title.slice(i + 2) : title).trim() || "Market";
+}
+
+// Group a category's events into one card PER MATCH. Every event ticker is
+// "<SERIES>-<date><teams>" (e.g. KXWCTOTAL-26JUL01ENGCOD), so the suffix after the first "-" is
+// the match key; all market types for the same match share it. The card lists every market's
+// outcomes (tagged with `group`, ordered by market volume then odds); the first group is the
+// primary market (the match odds) that the client shows inline, and the whole card opens a popup.
+function matchCardsFromEvents(events: any[], maxCards = 40): Card[] {
+  const byMatch = new Map<string, any[]>();
+  for (const ev of events) {
+    const et = String(ev.event_ticker ?? "");
+    const dash = et.indexOf("-");
+    const key = dash >= 0 ? et.slice(dash + 1) : et;
+    (byMatch.get(key) ?? byMatch.set(key, []).get(key)!).push(ev);
   }
-  return cardsFromMarkets(markets.filter(priced));
+
+  const cards: Card[] = [];
+  for (const [key, evs] of byMatch) {
+    const groups: { label: string; vol: number; outcomes: Outcome[] }[] = [];
+    for (const ev of evs) {
+      const markets = ((ev.markets ?? []) as any[]).map(toLive).filter(isBuyable);
+      if (!markets.length) continue;
+      markets.sort((a, b) => oddsKey(b) - oddsKey(a));
+      groups.push({
+        label: marketTypeLabel(ev),
+        vol: Math.max(0, ...markets.map((m) => m.volume)),
+        outcomes: markets.slice(0, MAX_OUTCOMES).map(toOutcome),
+      });
+    }
+    if (!groups.length) continue;
+    groups.sort((a, b) => b.vol - a.vol); // primary (highest-volume) market first
+    const outcomes = groups.flatMap((g) => g.outcomes.map((o) => ({ ...o, group: g.label })));
+    const titleSrc =
+      evs.map((e) => String(e.title ?? "")).find((t) => t.includes(" vs ")) ??
+      String(evs[0].title ?? "");
+    const title = titleSrc.includes(" vs ") ? titleSrc.split(": ")[0].trim() : titleSrc.trim();
+    const closeTimes = evs
+      .flatMap((e) => ((e.markets ?? []) as any[]).map((m) => m.close_time as string))
+      .filter(Boolean)
+      .sort();
+    cards.push({
+      id: "WCM-" + key,
+      title: title || key,
+      vol: Math.max(0, ...groups.map((g) => g.vol)),
+      market_count: groups.length,
+      close_time: closeTimes[0] ?? "",
+      outcomes,
+      grouped: true,
+    });
+  }
+  cards.sort((a, b) => b.vol - a.vol);
+  return cards.slice(0, maxCards);
 }
 
 async function fetchTrendingEvents(pages = 4): Promise<any[]> {
@@ -170,17 +263,20 @@ async function fetchTrendingEvents(pages = 4): Promise<any[]> {
 }
 
 function cardFromEvent(ev: any): Card | null {
-  const markets: LiveMarket[] = (ev.markets ?? []).map(toLive).filter(priced);
+  // Only buyable markets make the card; a card whose every outcome is non-tradeable is dropped.
+  const markets: LiveMarket[] = (ev.markets ?? []).map(toLive).filter(isBuyable);
   if (!markets.length) return null;
-  const ordered = [...markets].sort((a, b) => askKey(b) - askKey(a));
-  const title = String(ev.title ?? markets[0].matchup).replace(" Winner?", "").trim();
+  const ordered = [...markets].sort((a, b) => oddsKey(b) - oddsKey(a));
+  const evTicker = ev.event_ticker ?? "";
+  const rawTitle = String(ev.title ?? markets[0].matchup).replace(" Winner?", "").trim();
+  const title = isMlbTicker(evTicker) ? mlbMatchup(rawTitle) : rawTitle;
   return {
-    id: ev.event_ticker ?? "",
+    id: evTicker,
     title,
     vol: Math.max(0, ...markets.map((m) => m.volume)),
     market_count: markets.length,
     close_time: minCloseTime(markets),
-    outcomes: ordered.slice(0, 6).map(toOutcome),
+    outcomes: ordered.slice(0, MAX_OUTCOMES).map(toOutcome),
   };
 }
 
@@ -217,11 +313,22 @@ export async function fetchQuotes(tickers: string[], fresh = false): Promise<Rec
   return out;
 }
 
+// Assembled-board cache: hand back the identical set of cards for a category for its ttl window.
+// This is what keeps the board STABLE across the client's periodic structure refetch (same set
+// in, same order out, no reshuffle) and avoids re-fanning-out to Kalshi on every request. Prices
+// are not stale in practice: the client patches them from the separate /api/quotes poll (~1.5s).
+const boardCache = new Map<string, { at: number; cards: Card[] }>();
+
 // Event cards for a category tab.
 export async function cardsForCategory(key: string): Promise<Card[]> {
   const cfg = CATEGORY_BY_KEY[key] ?? CATEGORY_BY_KEY["mlb"];
-  if (cfg.source === "trending") {
-    return cardsFromEvents(await fetchTrendingEvents(), cfg.category ?? "");
-  }
-  return fetchSeriesCards(key);
+  const now = Date.now();
+  const hit = boardCache.get(key);
+  if (hit && now - hit.at < cfg.ttl * 1000) return hit.cards;
+  const cards =
+    cfg.source === "trending"
+      ? cardsFromEvents(await fetchTrendingEvents(), cfg.category ?? "")
+      : await fetchSeriesCards(key);
+  if (cards.length) boardCache.set(key, { at: now, cards }); // don't pin a transient empty fetch
+  return cards;
 }

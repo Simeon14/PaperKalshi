@@ -17,6 +17,31 @@
 * {
   box-sizing: border-box;
 }
+
+/* Scrollbars tuned to the dark theme (the default grey-on-white bar looks jarring here). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #333a46 transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #333a46;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #454d5c;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
 html,
 body {
   margin: 0;
@@ -189,7 +214,25 @@ tbody tr:hover{background:var(--panel-2)}
 .catbar .cat{background:transparent;border:0;color:var(--muted);padding:12px 15px;cursor:pointer;font-size:13.5px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
 .catbar .cat:hover{color:var(--text)}
 .catbar .cat.active{color:var(--text);border-bottom-color:var(--accent)}
-.gc-more{font-size:11px;color:var(--muted);padding:5px 0 0}
+.gc-more{display:block;width:100%;text-align:left;font-size:11px;color:var(--accent);background:transparent;border:0;padding:6px 0 0;cursor:pointer;font-family:var(--sans)}
+.gc-more:hover{color:#9bb6ff;text-decoration:underline}
+.modal.outcomes-modal{width:420px;max-width:calc(100vw - 32px)}
+.outcomes-list{max-height:min(56vh,420px);overflow-y:auto;margin-bottom:13px;padding-right:2px}
+.outcomes-list .gc-team{padding:7px 0;border-bottom:1px solid var(--border)}
+.outcomes-list .gc-team:last-child{border-bottom:0}
+/* Match card (World Cup): whole card opens the full-markets popup; prices still bet inline. */
+.match-card{cursor:pointer;transition:border-color .12s,background .12s}
+.match-card:hover{border-color:#3a4150;background:#1c2029}
+.match-cta{color:var(--accent);font-weight:600}
+/* Large "match page" popup listing every market grouped by type, in a scrollable column grid. */
+.modal.match-modal{width:min(1080px,94vw);max-width:none;max-height:calc(100vh - 44px);display:flex;flex-direction:column}
+.match-modal .pf-head{flex:0 0 auto}
+.match-sections{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:2px 24px;align-items:start;padding-right:4px}
+.mkt-group{min-width:0;margin-bottom:14px}
+.mkt-group-hd{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;padding-bottom:4px;margin-bottom:2px;border-bottom:1px solid var(--border)}
+.mkt-group .gc-team{padding:6px 0;align-items:center}
+.mkt-group .gc-team .nm{min-width:0;overflow-wrap:anywhere}
+.mkt-group .gc-price{flex:0 0 auto}
 .hd-right{display:flex;align-items:center;gap:10px}
 .sortseg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
 .sortseg button{background:transparent;border:0;color:var(--muted);font-size:11px;padding:3px 9px;cursor:pointer;font-family:var(--sans)}
@@ -218,6 +261,12 @@ tbody tr:hover{background:var(--panel-2)}
 .overlay.show{display:flex}
 .modal{width:380px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px}
 .modal h3{margin:0 0 2px;font-size:15px}
+.portfolio-modal{width:600px;max-width:calc(100vw - 28px);max-height:calc(100vh - 40px);overflow-y:auto}
+.pf-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.pf-head h3{margin:0;font-size:16px}
+.pf-chips{margin:0 0 14px}
+.pf-card{margin-bottom:12px}
+.pf-card:last-child{margin-bottom:0}
 .modal .mk{color:var(--muted);font-size:12px;margin-bottom:14px}
 .seg{display:flex;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:14px}
 .seg button{flex:1;background:transparent;border:0;color:var(--muted);padding:9px 0;cursor:pointer;font-size:13px;font-weight:600}

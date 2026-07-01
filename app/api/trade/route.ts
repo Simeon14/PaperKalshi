@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     (action !== "buy" && action !== "sell") ||
     !Number.isInteger(count) ||
     count < 1 ||
-    count > 100000
+    count > 100_000_000 // sanity bound only; affordability is enforced in apply_trade
   ) {
     return NextResponse.json({ error: "invalid order" }, { status: 422 });
   }

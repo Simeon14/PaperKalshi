@@ -84,6 +84,7 @@ export interface Outcome extends LiveMarket {
   yes_mid_c: number | null;
   no_mid_c: number | null;
   tradeable: boolean;
+  group?: string; // market-type label, set for match-grouped (World Cup) cards
 }
 
 export function toOutcome(m: LiveMarket): Outcome {
