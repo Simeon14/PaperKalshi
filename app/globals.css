@@ -173,9 +173,6 @@ a {
 .chip .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .chip .v{font-family:var(--mono);font-size:15px;font-weight:600;margin-top:2px}
 .spacer{flex:1}
-.btn.ghost{background:transparent}
-.btn.icon{padding:6px 8px;display:inline-flex;align-items:center;justify-content:center;line-height:0;color:var(--muted)}
-.btn.icon:hover{color:var(--text)}
 .brand{display:flex;flex-direction:column;gap:1px}
 .username{font-size:12px;color:var(--muted);margin-left:14px}
 .layout{display:grid;grid-template-columns:1fr 400px;gap:14px;padding:14px 20px 40px;align-items:start}
@@ -246,7 +243,8 @@ tbody tr:hover{background:var(--panel-2)}
 .gc-team{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0}
 .gc-team .nm{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:7px}
 .gc-team .held{font-family:var(--mono);font-size:10px;color:#9bb6ff;border:1px solid #2c3550;background:rgba(91,140,255,.10);border-radius:6px;padding:1px 6px}
-.gc-price{font-family:var(--mono);font-weight:650;font-size:14px;color:#cfe0ff;border:1px solid var(--accent);background:rgba(91,140,255,.13);border-radius:999px;padding:7px 0;cursor:pointer;min-width:74px;text-align:center}
+/* Rendered as a real <button> (keyboard accessible); the resets keep it pixel-identical. */
+.gc-price{appearance:none;font-family:var(--mono);font-weight:650;font-size:14px;line-height:1.45;color:#cfe0ff;border:1px solid var(--accent);background:rgba(91,140,255,.13);border-radius:999px;padding:7px 0;cursor:pointer;min-width:74px;text-align:center}
 .gc-price:hover{background:rgba(91,140,255,.22)}
 .gc-price.closed{color:var(--muted);cursor:default;border-color:var(--border);background:var(--panel);border-style:dashed}
 .gc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:9px;border-top:1px solid var(--border);font-size:11.5px;color:var(--muted)}
@@ -255,8 +253,6 @@ tbody tr:hover{background:var(--panel-2)}
 .badge.no{background:rgba(255,93,93,.16);color:#ff9b9b}
 .badge.settle{background:rgba(139,145,158,.16);color:#aeb4bf}
 .empty{color:var(--muted);padding:22px;text-align:center;font-size:12.5px}
-.x{color:var(--muted);cursor:pointer;border:1px solid var(--border);background:var(--panel-2);border-radius:6px;padding:3px 9px;font-size:11px}
-.x:hover{border-color:var(--red);color:#ffb0b0}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:20}
 .overlay.show{display:flex}
 .modal{width:380px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px}
@@ -268,6 +264,8 @@ tbody tr:hover{background:var(--panel-2)}
 .pf-card{margin-bottom:12px}
 .pf-card:last-child{margin-bottom:0}
 .modal .mk{color:var(--muted);font-size:12px;margin-bottom:14px}
+/* Ticket note shown when a buy will first close an opposite-side holding (netting). */
+.netnote{color:var(--muted);font-size:11.5px;margin:-6px 0 12px}
 .seg{display:flex;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:14px}
 .seg button{flex:1;background:transparent;border:0;color:var(--muted);padding:9px 0;cursor:pointer;font-size:13px;font-weight:600}
 .seg button.active.yes{background:var(--green);color:#0b0c0f}

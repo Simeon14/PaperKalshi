@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { USERNAME_RE, normalizeUsername, usernameToEmail } from "@/lib/auth";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest) {
+  if (!rateLimit("signup:" + clientIp(req), 5, 60_000)) {
+    return NextResponse.json({ error: "Too many attempts. Try again in a minute." }, { status: 429 });
+  }
   const body = await req.json().catch(() => ({}));
   const username = normalizeUsername(String(body.username ?? ""));
   const password = String(body.password ?? "");

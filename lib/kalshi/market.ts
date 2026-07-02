@@ -52,6 +52,12 @@ export function isResolved(m: LiveMarket): boolean {
   return m.result === "yes" || m.result === "no";
 }
 
+// Kalshi occasionally voids a market (result = 'void'): the trade unwinds and holders are
+// refunded their cost. Handled separately from isResolved because the payout differs.
+export function isVoided(m: LiveMarket): boolean {
+  return m.result === "void";
+}
+
 export function isTradeable(m: LiveMarket): boolean {
   return m.status === "active" && !isResolved(m) && m.yes_ask_c !== null;
 }
@@ -79,8 +85,20 @@ export function toLive(m: any): LiveMarket {
   };
 }
 
-// The per-outcome shape sent to the browser (mirrors LiveMarket.to_dict()).
-export interface Outcome extends LiveMarket {
+// The per-outcome shape sent to the browser: exactly what the board, popups, and trade
+// ticket render, nothing more. Server-side logic (settlement, fill pricing) stays on the
+// full LiveMarket; keeping this slim matters because a World Cup board ships thousands of
+// outcomes per structure refresh.
+export interface Outcome {
+  ticker: string;
+  team: string;
+  matchup: string;
+  close_time: string;
+  yes_bid_c: number | null;
+  yes_ask_c: number | null;
+  no_bid_c: number | null;
+  no_ask_c: number | null;
+  last_c: number | null;
   yes_mid_c: number | null;
   no_mid_c: number | null;
   tradeable: boolean;
@@ -88,5 +106,18 @@ export interface Outcome extends LiveMarket {
 }
 
 export function toOutcome(m: LiveMarket): Outcome {
-  return { ...m, yes_mid_c: yesMidC(m), no_mid_c: noMidC(m), tradeable: isTradeable(m) };
+  return {
+    ticker: m.ticker,
+    team: m.team,
+    matchup: m.matchup,
+    close_time: m.close_time,
+    yes_bid_c: m.yes_bid_c,
+    yes_ask_c: m.yes_ask_c,
+    no_bid_c: m.no_bid_c,
+    no_ask_c: m.no_ask_c,
+    last_c: m.last_c,
+    yes_mid_c: yesMidC(m),
+    no_mid_c: noMidC(m),
+    tradeable: isTradeable(m),
+  };
 }

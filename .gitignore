@@ -35,5 +35,6 @@ data/
 
 # Internal working notes (not for publication)
 handoff.md
+handoffnotes.md
 .vercel
 .env*

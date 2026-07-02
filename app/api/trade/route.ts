@@ -2,13 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchMarket } from "@/lib/kalshi/board";
-import { isResolved } from "@/lib/kalshi/market";
+import { isResolved, isVoided } from "@/lib/kalshi/market";
 import { computeFill, type Side, type Action } from "@/lib/broker";
 import { getAccountState } from "@/lib/account";
+import { rateLimit, clientIp } from "@/lib/ratelimit";
 
 // The trusted referee: validate the user, re-price the order against a fresh Kalshi quote,
 // then write the result atomically via the apply_trade RPC (service_role bypasses RLS).
+//
+// Positions net per market, like Kalshi: a buy first CLOSES any holding on the other side,
+// and only the remainder opens new contracts. The two legs are two apply_trade calls (each
+// atomic on the locked account row). On Kalshi's mirrored book the closing sell price is the
+// complement of the buy price, so the economics match a single netted order; the one
+// divergence is that the taker fee is ceiled per leg, which can cost a cent more than a
+// single order would.
 export async function POST(req: NextRequest) {
+  if (!rateLimit("trade:" + clientIp(req), 60, 60_000)) {
+    return NextResponse.json({ error: "too many requests" }, { status: 429 });
+  }
   const supabase = await createClient();
   const {
     data: { user },
@@ -34,11 +45,11 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
   const market = await fetchMarket(ticker, true); // fresh quote
 
-  if (isResolved(market)) {
+  if (isResolved(market) || isVoided(market)) {
     await admin.rpc("settle_market", {
       p_user: user.id,
       p_ticker: ticker,
-      p_result: market.result,
+      p_result: isVoided(market) ? "void" : market.result,
       p_ts: Date.now(),
     });
     return NextResponse.json({ error: "market has resolved" }, { status: 409 });
@@ -51,27 +62,81 @@ export async function POST(req: NextRequest) {
     .single();
   const realistic = !!acct?.realistic;
 
-  const fill = computeFill(market, side, action, count, realistic);
-  if (!fill) {
-    return NextResponse.json({ error: "no price available for that side" }, { status: 400 });
+  const applyTrade = (a: Action, s: Side, n: number, priceC: number, feeC: number) =>
+    admin.rpc("apply_trade", {
+      p_user: user.id,
+      p_ticker: ticker,
+      p_side: s,
+      p_action: a,
+      p_count: n,
+      p_price_c: priceC,
+      p_fee_c: feeC,
+      p_team: market.team,
+      p_matchup: market.matchup,
+      p_ts: Date.now(),
+    });
+
+  const fills: unknown[] = [];
+
+  // Netting: how much of a buy just closes the opposite side.
+  let closeCount = 0;
+  if (action === "buy") {
+    const opposite: Side = side === "yes" ? "no" : "yes";
+    const { data: opp } = await admin
+      .from("positions")
+      .select("contracts")
+      .eq("user_id", user.id)
+      .eq("ticker", ticker)
+      .eq("side", opposite)
+      .maybeSingle();
+    closeCount = Math.min(count, opp?.contracts ?? 0);
+    if (closeCount > 0) {
+      const closeFill = computeFill(market, opposite, "sell", closeCount, realistic);
+      if (!closeFill) {
+        return NextResponse.json(
+          { error: `no price available to close your ${opposite.toUpperCase()} position` },
+          { status: 400 },
+        );
+      }
+      const { data, error } = await applyTrade("sell", opposite, closeCount, closeFill.priceC, closeFill.feeC);
+      if (error) {
+        return NextResponse.json({ error: error.message || "trade rejected" }, { status: 400 });
+      }
+      fills.push(data);
+    }
   }
 
-  const { data, error } = await admin.rpc("apply_trade", {
-    p_user: user.id,
-    p_ticker: ticker,
-    p_side: side,
-    p_action: action,
-    p_count: count,
-    p_price_c: fill.priceC,
-    p_fee_c: fill.feeC,
-    p_team: market.team,
-    p_matchup: market.matchup,
-    p_ts: Date.now(),
-  });
-  if (error) {
-    return NextResponse.json({ error: error.message || "trade rejected" }, { status: 400 });
+  const remainder = action === "buy" ? count - closeCount : count;
+  if (remainder > 0) {
+    const fill = computeFill(market, side, action, remainder, realistic);
+    if (!fill) {
+      if (fills.length) {
+        // The closing leg executed but the opening side has no usable price (the book moved
+        // between legs). Report the partial result honestly instead of erroring it away.
+        const account = await getAccountState(user.id, { forceLeaderboard: true });
+        return NextResponse.json({
+          fills,
+          account,
+          warning: "Closed your opposite position, but no price was available to open the rest.",
+        });
+      }
+      return NextResponse.json({ error: "no price available for that side" }, { status: 400 });
+    }
+    const { data, error } = await applyTrade(action, side, remainder, fill.priceC, fill.feeC);
+    if (error) {
+      if (fills.length) {
+        const account = await getAccountState(user.id, { forceLeaderboard: true });
+        return NextResponse.json({
+          fills,
+          account,
+          warning: error.message || "The opening leg was rejected after your opposite position closed.",
+        });
+      }
+      return NextResponse.json({ error: error.message || "trade rejected" }, { status: 400 });
+    }
+    fills.push(data);
   }
 
-  const account = await getAccountState(user.id);
-  return NextResponse.json({ fill: data, account });
+  const account = await getAccountState(user.id, { forceLeaderboard: true });
+  return NextResponse.json({ fills, account });
 }

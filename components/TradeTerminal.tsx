@@ -4,14 +4,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { takerFeeCents } from "@/lib/fees";
-import type { Card } from "@/lib/kalshi/board";
 import type { Outcome } from "@/lib/kalshi/market";
 import type { AccountState, PositionState } from "@/lib/account";
+import { eventStart } from "@/lib/kalshi/eventTime";
+import {
+  mergeBoards,
+  patchOutcomes,
+  sortCards,
+  type BoardCard,
+  type BoardOutcome,
+} from "@/lib/boardMerge";
 
 // Refresh cadences (ms) and the per-tick ticker cap (bounds a huge / zoomed-out viewport).
 const FAST_MS = 1500; // viewport-scoped price refresh
 const MODAL_MS = 500; // open buy-ticket's single market
-const STRUCTURE_MS = 12000; // full board: which cards exist
+const STRUCTURE_MS = 30000; // full board: which cards exist (rarely changes; quotes stay live)
 const ACCOUNT_MS = 6000; // account / positions
 const MAX_VISIBLE_TICKERS = 40;
 
@@ -22,69 +29,6 @@ const cls = (v: number) => (v > 0 ? "pos" : v < 0 ? "neg" : "");
 const signed = (v: number) => (v >= 0 ? "+" : "") + money(v);
 const fmtVol = (v: number) =>
   v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? Math.round(v / 1e3) + "k" : String(v);
-
-function fmtDate(s: string): string {
-  if (!s) return "";
-  try {
-    const dte = new Date(s);
-    const now = new Date();
-    const o: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-    if (dte.getFullYear() !== now.getFullYear()) o.year = "numeric";
-    return dte.toLocaleDateString(undefined, o);
-  } catch {
-    return "";
-  }
-}
-
-const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-// The game date is encoded in the event ticker after the series prefix: MLB
-// "KXMLBGAME-26JUN271905STLCHC" (date + HHMM), World Cup "KXWCTOTAL-26JUL05BRANOR" (date only).
-const EVENT_RE =
-  /-(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})(\d{2})?(\d{2})?(?=[A-Z]|$)/;
-
-// An event's start as a sortable timestamp + display label. Kalshi's close_time is unreliable
-// for World Cup (it can sit ~2 weeks past the match), so the ticker date is authoritative; we
-// only fall back to close_time when the ticker has no game date (futures / season-long markets).
-function eventStart(id: string, closeTime: string): { ts: number; label: string } {
-  const m = (id || "").match(EVENT_RE);
-  if (m) {
-    const yy = parseInt(m[1], 10);
-    const mon = MONTHS.indexOf(m[2]);
-    const dd = parseInt(m[3], 10);
-    const hasTime = m[4] != null && m[5] != null;
-    const hh = hasTime ? parseInt(m[4], 10) : 0;
-    const mm = hasTime ? parseInt(m[5], 10) : 0;
-    const ts = Date.UTC(2000 + yy, mon, dd, hh, mm);
-    const monName = m[2][0] + m[2].slice(1).toLowerCase();
-    let label = `${monName} ${dd}`;
-    if (hasTime) label += ` · ${hh % 12 || 12}:${m[5]} ${hh >= 12 ? "PM" : "AM"}`;
-    return { ts, label };
-  }
-  const parsed = closeTime ? Date.parse(closeTime) : NaN;
-  return {
-    ts: Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed,
-    label: fmtDate(closeTime) || "—",
-  };
-}
-
-// Deterministic ordering (ties broken by id). Applied to establish the board's order on first
-// load / category switch / sort toggle, and to place newly-appeared cards among themselves.
-// It is NOT re-run on every refresh: once the board is shown its order is frozen, so live
-// volume/price changes don't reshuffle it (see loadMarkets' merge path).
-function sortCards(cards: Card[], sortBy: "vol" | "date"): Card[] {
-  const byId = (a: Card, b: Card) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-  const cs = [...cards];
-  if (sortBy === "date") {
-    cs.sort((a, b) => {
-      const ta = eventStart(a.id, a.close_time).ts;
-      const tb = eventStart(b.id, b.close_time).ts;
-      return ta !== tb ? ta - tb : byId(a, b);
-    });
-  } else {
-    cs.sort((a, b) => (b.vol !== a.vol ? b.vol - a.vol : byId(a, b)));
-  }
-  return cs;
-}
 
 // The market-type header already conveys the market, so drop the noisy "... Reg Time:" prefix
 // from each outcome label inside a match view: "Reg Time: England" -> "England",
@@ -124,7 +68,7 @@ export default function TradeTerminal({ username }: { username: string }) {
   const [categories, setCategories] = useState<{ key: string; label: string }[]>([]);
   const [category, setCategory] = useState("worldcup");
   const [catLabel, setCatLabel] = useState("World Cup");
-  const [cards, setCards] = useState<Card[]>([]);
+  const [cards, setCards] = useState<BoardCard[]>([]);
   const [account, setAccount] = useState<AccountState | null>(null);
   const [connected, setConnected] = useState(true);
   const [loadingMarkets, setLoadingMarkets] = useState(true);
@@ -154,18 +98,28 @@ export default function TradeTerminal({ username }: { username: string }) {
   const modalOpenRef = useRef(false);
   modalOpenRef.current = modal.open;
   const overlayMouseDown = useRef(false);
-  const cardsRef = useRef<Card[]>(cards);
+  const cardsRef = useRef<BoardCard[]>(cards);
   cardsRef.current = cards;
   const sortByRef = useRef(sortBy);
   sortByRef.current = sortBy;
+  // Which category the user is CURRENTLY on, written synchronously on switch so that an
+  // in-flight response for a previous tab can be recognized as stale and dropped.
+  const categoryRef = useRef(category);
+  // Synchronous re-entry lock for confirmTrade: a second click can land before the async
+  // `busy` state re-renders the disabled button.
+  const submitRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const visibleIds = useRef<Set<string>>(new Set());
 
-  const boardMap = useMemo(() => {
-    const m = new Map<string, Outcome>();
-    cards.forEach((c) => c.outcomes.forEach((o) => m.set(o.ticker, o)));
-    return m;
-  }, [cards]);
+  // On-demand outcome lookup (only needed while a ticket is open, as the fallback before its
+  // own quote poll answers); a memoized map here would rebuild on every price tick instead.
+  function findOutcome(ticker: string): BoardOutcome | undefined {
+    for (const c of cards) {
+      const o = c.outcomes.find((x) => x.ticker === ticker);
+      if (o) return o;
+    }
+    return undefined;
+  }
 
   // The card whose full-outcomes menu is open (looked up live so its prices keep refreshing).
   const outcomesCard = outcomesId ? cards.find((c) => c.id === outcomesId) ?? null : null;
@@ -188,6 +142,10 @@ export default function TradeTerminal({ username }: { username: string }) {
     return m;
   }, [cards]);
 
+  // The board's membership/order fingerprint: effects that only care about which cards exist
+  // (not their prices) key on this so the 1.5s quote ticks don't churn them.
+  const cardIdsKey = useMemo(() => cards.map((c) => c.id).join("|"), [cards]);
+
   const loadCategories = useCallback(async () => {
     try {
       const d = await (await fetch("/api/categories")).json();
@@ -198,34 +156,28 @@ export default function TradeTerminal({ username }: { username: string }) {
   }, []);
 
   // `replace` = re-sort from scratch (first load, category switch, sort toggle). Otherwise the
-  // periodic refetch MERGES: existing cards keep their on-screen position (their data is
-  // refreshed in place), closed cards drop out, and genuinely-new markets are appended at the
-  // bottom (visible on scroll). So the board loads once and its order stays fixed thereafter,
-  // rather than reshuffling every time volumes tick.
+  // periodic refetch MERGES (see lib/boardMerge.ts): surviving cards keep their on-screen
+  // position but adopt the fresh data, closed cards drop out, and genuinely-new markets are
+  // appended at the bottom. Responses for a category the user has since left are dropped.
   const loadMarkets = useCallback(async (cat: string, replace = false) => {
     if (replace) setLoadingMarkets(true);
     try {
       const d = await (await fetch("/api/markets?category=" + encodeURIComponent(cat))).json();
-      const apiCards: Card[] = d.cards || [];
-      setCards((prev) => {
-        if (replace || prev.length === 0) return sortCards(apiCards, sortByRef.current);
-        const apiIds = new Set(apiCards.map((c) => c.id));
-        const existing = new Set(prev.map((c) => c.id));
-        // Survivors keep their existing object (and thus their live-patched prices) and their
-        // on-screen position; only genuinely-new markets are pulled in, sorted among themselves
-        // and appended at the bottom. Closed markets drop out.
-        const kept = prev.filter((c) => apiIds.has(c.id));
-        const added = sortCards(
-          apiCards.filter((c) => !existing.has(c.id)),
-          sortByRef.current,
-        );
-        return [...kept, ...added];
-      });
+      if (cat !== categoryRef.current) return; // stale response from a previous tab
+      const apiCards: BoardCard[] = d.cards || [];
+      // The server reports the board's age; anything we live-patched after it was assembled
+      // is fresher than what it says (clock-skew-free because only durations cross the wire).
+      const bornAt = Date.now() - (typeof d.ageMs === "number" ? d.ageMs : 0);
+      setCards((prev) =>
+        replace
+          ? sortCards(apiCards, sortByRef.current)
+          : mergeBoards(prev, apiCards, bornAt, sortByRef.current),
+      );
       setConnected(true);
     } catch {
-      setConnected(false);
+      if (cat === categoryRef.current) setConnected(false);
     } finally {
-      if (replace) setLoadingMarkets(false);
+      if (replace && cat === categoryRef.current) setLoadingMarkets(false);
     }
   }, []);
 
@@ -238,15 +190,12 @@ export default function TradeTerminal({ username }: { username: string }) {
     }
   }, []);
 
-  // Merge fresh quotes into the existing cards, touching only the markets that changed.
+  // Merge fresh quotes into the existing cards. patchOutcomes clones only what actually
+  // changed and returns the previous array untouched when nothing did, so a quiet tick
+  // costs no render at all.
   const patchPrices = useCallback((quotes: Record<string, Outcome>) => {
     if (!quotes || !Object.keys(quotes).length) return;
-    setCards((prev) =>
-      prev.map((c) => ({
-        ...c,
-        outcomes: c.outcomes.map((o) => (quotes[o.ticker] ? { ...o, ...quotes[o.ticker] } : o)),
-      })),
-    );
+    setCards((prev) => patchOutcomes(prev, quotes, Date.now()));
   }, []);
 
   // initial load
@@ -267,7 +216,7 @@ export default function TradeTerminal({ username }: { username: string }) {
   // Full board structure (which cards exist) on a slow cadence; the fast tick keeps prices live.
   useEffect(() => {
     const id = setInterval(() => {
-      if (!modalOpenRef.current) loadMarkets(category);
+      if (!modalOpenRef.current && !document.hidden) loadMarkets(category);
     }, STRUCTURE_MS);
     return () => clearInterval(id);
   }, [category, loadMarkets]);
@@ -280,12 +229,37 @@ export default function TradeTerminal({ username }: { username: string }) {
   // Account / positions.
   useEffect(() => {
     const id = setInterval(() => {
-      if (!modalOpenRef.current) loadAccount();
+      if (!modalOpenRef.current && !document.hidden) loadAccount();
     }, ACCOUNT_MS);
     return () => clearInterval(id);
   }, [loadAccount]);
 
-  // Track which cards are actually in the scroll viewport (re-synced when the board changes).
+  // A hidden tab stops polling entirely (the interval guards above); snap everything fresh
+  // the moment the user comes back.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.hidden) return;
+      loadMarkets(categoryRef.current);
+      loadAccount();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [loadMarkets, loadAccount]);
+
+  // Escape closes the top-most layer: the trade ticket first, else the markets popup.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (modalOpenRef.current) setModal((m) => ({ ...m, open: false }));
+      else setOutcomesId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Track which cards are actually in the scroll viewport. Keyed on the board's id
+  // fingerprint: price patches leave the observer alone; only membership/order changes
+  // (load, merge additions/drops, re-sort) re-observe.
   useEffect(() => {
     const root = scrollRef.current;
     if (!root) return;
@@ -303,12 +277,13 @@ export default function TradeTerminal({ username }: { username: string }) {
     );
     root.querySelectorAll<HTMLElement>("[data-card-id]").forEach((el) => obs.observe(el));
     return () => obs.disconnect();
-  }, [cards]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardIdsKey]);
 
   // Fast, viewport-scoped price refresh: ONE batched Kalshi call for just the visible markets.
   useEffect(() => {
     const id = setInterval(async () => {
-      if (modalOpenRef.current) return; // board is hidden behind the ticket, which polls itself
+      if (modalOpenRef.current || document.hidden) return; // ticket polls itself; hidden tabs idle
       const ids = visibleIds.current;
       const tickers: string[] = [];
       for (const c of cardsRef.current) {
@@ -344,8 +319,9 @@ export default function TradeTerminal({ username }: { username: string }) {
     const ticker = modal.ticker;
     let cancelled = false;
     const tick = async () => {
+      if (document.hidden) return;
       try {
-        const r = await fetch("/api/quotes?fresh=1&tickers=" + encodeURIComponent(ticker));
+        const r = await fetch("/api/quotes?tickers=" + encodeURIComponent(ticker));
         if (!r.ok) return;
         const quotes = (await r.json()).quotes || {};
         patchPrices(quotes);
@@ -371,6 +347,7 @@ export default function TradeTerminal({ username }: { username: string }) {
     if (!tickers.length) return;
     let cancelled = false;
     const tick = async () => {
+      if (document.hidden) return;
       try {
         const r = await fetch("/api/quotes?tickers=" + encodeURIComponent(tickers.slice(0, 50).join(",")));
         if (r.ok && !cancelled) patchPrices((await r.json()).quotes || {});
@@ -388,6 +365,7 @@ export default function TradeTerminal({ username }: { username: string }) {
 
   function switchCategory(key: string, label: string) {
     if (key === category) return;
+    categoryRef.current = key; // synchronously: in-flight responses for other tabs are stale now
     setCategory(key);
     setCatLabel(label);
     setCards([]);
@@ -440,6 +418,7 @@ export default function TradeTerminal({ username }: { username: string }) {
 
   // qty is always a resolved contract count (dollars-mode entry is converted before this).
   async function confirmTrade(qty: number) {
+    if (submitRef.current) return;
     if (!(qty > 0)) {
       setModal((m) => ({
         ...m,
@@ -452,6 +431,7 @@ export default function TradeTerminal({ username }: { username: string }) {
       setModal((m) => ({ ...m, err: `You only hold ${held}.` }));
       return;
     }
+    submitRef.current = true;
     setModal((m) => ({ ...m, busy: true, err: "" }));
     try {
       const r = await fetch("/api/trade", {
@@ -475,6 +455,7 @@ export default function TradeTerminal({ username }: { username: string }) {
     } catch (e) {
       setModal((m) => ({ ...m, err: e instanceof Error ? e.message : "Trade failed." }));
     } finally {
+      submitRef.current = false;
       setModal((m) => ({ ...m, busy: false }));
     }
   }
@@ -518,7 +499,8 @@ export default function TradeTerminal({ username }: { username: string }) {
     const px = realistic ? ask : side === "yes" ? o.yes_mid_c : o.no_mid_c;
     if (o.tradeable && px != null && px >= 1 && px <= 99) {
       return (
-        <span
+        <button
+          type="button"
           className="gc-price"
           onClick={(e) => {
             e.stopPropagation(); // bet, don't also open the match popup on grouped cards
@@ -526,7 +508,7 @@ export default function TradeTerminal({ username }: { username: string }) {
           }}
         >
           {px}¢
-        </span>
+        </button>
       );
     }
     const last = side === "yes" ? o.last_c : o.last_c != null ? 100 - o.last_c : null;
@@ -559,7 +541,8 @@ export default function TradeTerminal({ username }: { username: string }) {
     : [];
 
   // trade-ticket summary (the live quote comes from the modal poll, falling back to the board)
-  const ticket = ticketQuote ?? (modal.ticker ? boardMap.get(modal.ticker) : undefined);
+  const boardOutcome = modal.ticker ? findOutcome(modal.ticker) : undefined;
+  const ticket = ticketQuote ?? boardOutcome;
   const isTrim = modal.position && modal.action === "sell";
   let tPrice: number | null = null;
   if (ticket) {
@@ -577,13 +560,36 @@ export default function TradeTerminal({ username }: { username: string }) {
     qtyNum = Math.max(0, parseInt(modal.qty || "0", 10) || 0);
   }
   if (isTrim) qtyNum = Math.min(qtyNum, held);
-  const tFee = tPrice != null && realistic ? takerFeeCents(qtyNum, tPrice) : 0;
-  const tCost = tPrice != null ? qtyNum * tPrice + tFee : 0;
+
+  // Netting preview: a board buy on the side opposite a held position first CLOSES that
+  // holding (the server nets, like Kalshi); only the remainder opens new contracts.
+  const oppSide: Side = modal.side === "yes" ? "no" : "yes";
+  const oppHeld =
+    modal.open && !modal.position && modal.ticker
+      ? posqty.get(modal.ticker + ":" + oppSide) ?? 0
+      : 0;
+  const closeCount = Math.min(qtyNum, oppHeld);
+  const openCount = qtyNum - closeCount;
+  let closePrice: number | null = null;
+  if (ticket && closeCount > 0) {
+    // The closing leg sells the opposite side: its mid in perfect-liquidity mode, its bid when realistic.
+    if (!realistic) closePrice = oppSide === "yes" ? ticket.yes_mid_c : ticket.no_mid_c;
+    else closePrice = oppSide === "yes" ? ticket.yes_bid_c : ticket.no_bid_c;
+  }
+  const closeFee = realistic && closePrice != null ? takerFeeCents(closeCount, closePrice) : 0;
+  const closeProceeds = closePrice != null ? closeCount * closePrice - closeFee : 0;
+  const openFee = realistic && tPrice != null ? takerFeeCents(openCount, tPrice) : 0;
+
+  const tFee = closeCount > 0 ? closeFee + openFee : tPrice != null && realistic ? takerFeeCents(qtyNum, tPrice) : 0;
+  const tCost = tPrice != null ? (closeCount > 0 ? openCount * tPrice + openFee : qtyNum * tPrice + tFee) : 0;
   const tProceeds = tPrice != null ? qtyNum * tPrice - tFee : 0;
   const tBasis = heldPos ? Math.round(heldPos.avg_price_c * qtyNum) : 0;
   const tRealized = tProceeds - tBasis;
   const priceLabel = !realistic ? "mid" : isTrim ? "bid" : "ask";
-  const ticketLabel = ticket?.team || "Trade";
+  const ticketLabel = wcLabel(ticket?.team || "") || "Trade";
+  // The event date shown on the ticket comes from the market ticker (close_time lies for
+  // games: World Cup ~2 weeks late, MLB start + 3 days), same source as the board cards.
+  const ticketWhen = modal.ticker && ticket ? eventStart(modal.ticker, ticket.close_time).label : "";
 
   return (
     <>
@@ -860,7 +866,7 @@ export default function TradeTerminal({ username }: { username: string }) {
                   <h3>{outcomesCard.title}</h3>
                   <div className="mk">
                     {outcomesCard.market_count} market{outcomesCard.market_count > 1 ? "s" : ""}
-                    {outcomesCard.close_time ? " · " + fmtDate(outcomesCard.close_time) : ""}
+                    {" · " + (timing.get(outcomesCard.id)?.label ?? "—")}
                   </div>
                 </div>
                 <button className="btn" onClick={() => setOutcomesId(null)}>
@@ -881,7 +887,7 @@ export default function TradeTerminal({ username }: { username: string }) {
               <h3>{outcomesCard.title}</h3>
               <div className="mk">
                 {outcomesCard.market_count} outcomes
-                {outcomesCard.close_time ? " · closes " + fmtDate(outcomesCard.close_time) : ""}
+                {" · " + (timing.get(outcomesCard.id)?.label ?? "—")}
               </div>
               <div className="outcomes-list">
                 {outcomesCard.outcomes.map((o) =>
@@ -916,8 +922,9 @@ export default function TradeTerminal({ username }: { username: string }) {
                 ? "Fetching market…"
                 : modal.position
                   ? `${ticket.matchup} · ${modal.side === "no" ? "No" : "Yes"} ×${held}`
-                  : ticket.matchup +
-                    (ticket.close_time ? " · closes " + fmtDate(ticket.close_time) : "")}
+                  : (boardOutcome?.group ? boardOutcome.group + " · " : "") +
+                    ticket.matchup +
+                    (ticketWhen ? " · " + ticketWhen : "")}
             </div>
             {modal.position ? (
               <div className="seg">
@@ -955,6 +962,12 @@ export default function TradeTerminal({ username }: { username: string }) {
                 >
                   No
                 </button>
+              </div>
+            )}
+            {oppHeld > 0 && (
+              <div className="netnote">
+                You hold {oppHeld} {oppSide === "yes" ? "Yes" : "No"}. Buying{" "}
+                {modal.side === "yes" ? "Yes" : "No"} closes that first.
               </div>
             )}
             <div className="field">
@@ -1040,6 +1053,37 @@ export default function TradeTerminal({ username }: { username: string }) {
                         <span className={cls(tRealized)}>{signed(tRealized / 100)}</span>
                       </div>
                     </>
+                  ) : closeCount > 0 ? (
+                    <>
+                      <div className="r">
+                        <span>
+                          Closes {oppSide === "yes" ? "Yes" : "No"} ×{closeCount}
+                        </span>
+                        <span>{closePrice != null ? closePrice + "¢" : "—"}</span>
+                      </div>
+                      {openCount > 0 && (
+                        <div className="r">
+                          <span>
+                            Opens {modal.side === "yes" ? "Yes" : "No"} ×{openCount}
+                          </span>
+                          <span>{tPrice}¢</span>
+                        </div>
+                      )}
+                      <div className="r">
+                        <span>
+                          <b>{closeProceeds >= tCost ? "Est. net credit" : "Est. net cost"}</b>
+                        </span>
+                        <span>
+                          <b>{money(Math.abs(tCost - closeProceeds) / 100)}</b>
+                        </span>
+                      </div>
+                      {openCount > 0 && (
+                        <div className="r muted">
+                          <span>Max payout if it wins</span>
+                          <span>{money(openCount)}</span>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <>
                       <div className="r">
@@ -1075,12 +1119,14 @@ export default function TradeTerminal({ username }: { username: string }) {
                       ? " no"
                       : "")
                 }
-                disabled={modal.busy || !ticket || tPrice == null}
+                disabled={modal.busy || !ticket || tPrice == null || (closeCount > 0 && closePrice == null)}
                 onClick={() => confirmTrade(qtyNum)}
               >
                 {modal.position
                   ? (modal.action === "sell" ? "Trim " : "Add ") + qtyNum
-                  : "Buy " + (modal.side === "yes" ? "Yes" : "No")}
+                  : closeCount > 0 && openCount === 0
+                    ? `Close ${closeCount} ${oppSide === "yes" ? "Yes" : "No"}`
+                    : "Buy " + (modal.side === "yes" ? "Yes" : "No")}
               </button>
             </div>
           </div>
