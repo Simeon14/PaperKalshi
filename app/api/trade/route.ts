@@ -7,6 +7,10 @@ import { computeFill, type Side, type Action } from "@/lib/broker";
 import { getAccountState } from "@/lib/account";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
+// Headroom over the ~10s default: a trade is a fresh quote + up to two RPC legs + the
+// account snapshot's batched marks, and a slow Kalshi day must not kill it mid-flight.
+export const maxDuration = 30;
+
 // The trusted referee: validate the user, re-price the order against a fresh Kalshi quote,
 // then write the result atomically via the apply_trade RPC (service_role bypasses RLS).
 //

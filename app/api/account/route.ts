@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAccountState } from "@/lib/account";
 
+export const maxDuration = 30; // account builds hit Kalshi; don't die on a slow upstream
+
 export async function GET() {
   const supabase = await createClient();
   const {

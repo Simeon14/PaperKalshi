@@ -9,6 +9,8 @@ import { rateLimit, clientIp } from "@/lib/ratelimit";
 // build costs Kalshi calls and DB reads and has no auth, so responses are cached for 30s
 // (storing the promise also dedupes concurrent hits) and per-IP rate limited.
 
+export const maxDuration = 30; // account builds hit Kalshi; don't die on a slow upstream
+
 interface Payload {
   username: string;
   account: AccountState;

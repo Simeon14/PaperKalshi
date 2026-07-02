@@ -1,5 +1,6 @@
 // Category board (event cards), ported from kalshi_live.py. Server-side only.
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { after } from "next/server";
 import {
   LiveMarket,
   Outcome,
@@ -265,8 +266,21 @@ let trendingFirstPages: Promise<any[]> | null = null;
 const TRENDING_TTL_MS = 600_000; // refresh the full walk in the background every 10 min
 const TRENDING_FIRST_PAGES = 4; // cold start: serve once this many pages are in
 const TRENDING_MAX_PAGES = 40; // safety cap (~8000 events), far above the ~4400 observed
-const TRENDING_TIME_BUDGET_MS = 90_000; // a throttled upstream must not stall the walk forever
+// Must fit inside the markets route's maxDuration (60s, the Vercel Hobby ceiling) together
+// with the response itself; a page in flight when the budget trips still completes.
+const TRENDING_TIME_BUDGET_MS = 45_000;
 const TRENDING_COLD_DEADLINE_MS = 15_000; // a cold-start request never waits longer than this
+
+// On Vercel a serverless function freezes once its response is sent, so a floating background
+// promise (an SWR rebuild, the rest of the trending walk) would silently stop. after() keeps
+// the function alive until the work settles. Outside a request scope this is a no-op.
+function keepAlive(work: Promise<unknown>) {
+  try {
+    after(work.catch(() => {}));
+  } catch {
+    /* not in a request scope (tests, scripts): nothing to extend */
+  }
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function trimEvent(ev: any): any {
@@ -344,6 +358,7 @@ async function fetchTrendingEvents(): Promise<any[]> {
         trendingFirstPages = null;
       });
     trendingInflight.catch(() => {});
+    keepAlive(trendingInflight); // the walk must outlive the response that started it
   }
   if (trendingComplete) return trendingComplete.events; // stale while the walk refreshes behind
   // Cold start: unblock on the first pages (the walk keeps upgrading the cache behind us),
@@ -468,6 +483,7 @@ export async function cardsForCategory(key: string): Promise<Board | null> {
     })();
     boardInflight.set(key, pending);
     pending.catch(() => {}).finally(() => boardInflight.delete(key));
+    keepAlive(pending); // an SWR rebuild must survive the stale response being sent
   }
 
   if (hit) {
