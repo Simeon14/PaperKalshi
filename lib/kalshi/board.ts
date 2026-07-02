@@ -4,6 +4,7 @@ import { after } from "next/server";
 import {
   LiveMarket,
   Outcome,
+  hasLiveBook,
   isTradeable,
   toLive,
   toOutcome,
@@ -16,6 +17,7 @@ import {
   listSeriesRaw,
 } from "@/lib/kalshi/client";
 import { isMlbTicker, mlbMatchup } from "@/lib/kalshi/mlb";
+import { MLB_TYPE } from "@/lib/mlbGroups";
 
 // Cards carry every priced outcome so the client can list them all (the "+N more" menu);
 // the display only renders the first few inline. Large enough for any real event's field.
@@ -37,6 +39,11 @@ interface CategoryCfg {
   series_scan?: number;
   max_series?: number;
   group_by_match?: boolean; // group a match's many market-type events into one match card
+  card_prefix?: string; // grouped cards: card id prefix (default "WCM"); "MLBM" for MLB
+  primary_series?: string; // grouped cards: the series pinned inline as the primary market
+  mlb_titles?: boolean; // grouped cards: map MLB city names to club nicknames in the card title
+  start_offset_min?: number; // minutes to add to the primary market's occurrence_datetime to get
+  //                            the real kickoff (Kalshi's occurrence == settlement; soccer = -180)
   ttl: number;
 }
 
@@ -49,6 +56,7 @@ export interface Card {
   outcomes: Outcome[]; // grouped cards: every market's outcomes, ordered by group then odds,
   //                      each tagged with `group`; the first group is the primary (match odds)
   grouped?: boolean; // a match card: card body opens the full-markets popup, inline shows primary
+  start_time?: string; // scheduled game datetime (from the primary market's occurrence_datetime)
 }
 
 const CATEGORIES: CategoryCfg[] = [
@@ -65,10 +73,25 @@ const CATEGORIES: CategoryCfg[] = [
       "KXWCCORNERS", "KXWCTCORNERS", "KXWC1HSPREAD", "KXWCSOA", "KXWC1HSCORE",
       "KXWCFTTS", "KXWCSTAGEOFELIM",
     ],
-    group_by_match: true,
+    // Pin regulation Moneyline (KXWCGAME) as the inline market, and back out the real kickoff:
+    // Kalshi's occurrence_datetime for soccer is the expected settlement (scheduled start + ~3h).
+    group_by_match: true, primary_series: "KXWCGAME", start_offset_min: -180,
     ttl: 45,
   },
-  { key: "mlb", label: "MLB", source: "series", series: ["KXMLBGAME"], ttl: 8 },
+  {
+    key: "mlb", label: "MLB", source: "series",
+    // Grouped match cards like World Cup: one card per game, every market type inside. The event
+    // ticker is "<SERIES>-<gameKey>" and the gameKey is identical across every MLB series for a
+    // game (Parlay/reports/02-mlb-market-anatomy.md), so they group cleanly. Moneyline (KXMLBGAME)
+    // is pinned as the inline primary market. Player-prop series are included so the parlay builder
+    // can reach them; illiquid ones simply return no events and cost one empty fetch.
+    series: [
+      "KXMLBGAME", "KXMLBSPREAD", "KXMLBTOTAL", "KXMLBTEAMTOTAL", "KXMLBF3", "KXMLBF5",
+      "KXMLBF5SPREAD", "KXMLBF5TOTAL", "KXMLBF7", "KXMLBEXTRAS", "KXMLBRFI",
+      "KXMLBHIT", "KXMLBHR", "KXMLBHRR", "KXMLBKS", "KXMLBRBI", "KXMLBSB", "KXMLBTB", "KXMLBOUTS",
+    ],
+    group_by_match: true, card_prefix: "MLBM", primary_series: "KXMLBGAME", mlb_titles: true, ttl: 8,
+  },
   { key: "elections", label: "Elections", source: "trending", category: "Elections", ttl: 180 },
   { key: "politics", label: "Politics", source: "trending", category: "Politics", ttl: 180 },
   { key: "finance", label: "Finance", source: "trending", category: "Financials", ttl: 180 },
@@ -102,11 +125,13 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R
 }
 
 // A market is BUYABLE when it's active with a live YES mid in 1..99 (a real price you can trade
-// at). The board only ever lists buyable outcomes; non-tradeable ones (no real offer on the
-// book, only a stale last price) are dropped entirely rather than shown greyed.
+// at) AND a two-sided book tight enough that the mid is meaningful (hasLiveBook): a dead
+// pre-game book mids to ~49c fiction. The board only ever lists buyable outcomes;
+// non-tradeable ones are dropped entirely rather than shown greyed, so dead books simply
+// reappear when their makers show up.
 function isBuyable(m: LiveMarket): boolean {
   const mid = yesMidC(m);
-  return isTradeable(m) && mid != null && mid >= 1 && mid <= 99;
+  return isTradeable(m) && hasLiveBook(m) && mid != null && mid >= 1 && mid <= 99;
 }
 // Highest YES odds first (every listed outcome is buyable, so yesMidC is a real 1..99 price).
 const oddsKey = (m: LiveMarket): number => yesMidC(m) ?? 0;
@@ -159,7 +184,13 @@ async function fetchSeriesCards(cfg: CategoryCfg): Promise<Card[]> {
   if (!series.length) return [];
   const lists = await mapLimit(series, 6, (s) => eventsForSeries(s, cfg.ttl));
   const events = lists.flat();
-  if (cfg.group_by_match) return matchCardsFromEvents(events);
+  if (cfg.group_by_match)
+    return matchCardsFromEvents(events, {
+      idPrefix: cfg.card_prefix,
+      primarySeries: cfg.primary_series,
+      mlbTitles: cfg.mlb_titles,
+      startOffsetMin: cfg.start_offset_min,
+    });
   const cards = events.map(cardFromEvent).filter((c): c is Card => c !== null);
   cards.sort((a, b) => b.vol - a.vol);
   return cards.slice(0, 36);
@@ -187,20 +218,34 @@ const WC_TYPE: Record<string, string> = {
   KXWCSTAGEOFELIM: "Stage of Elimination",
 };
 
+// World Cup + MLB market-type labels, keyed by the event ticker's series prefix. The MLB labels
+// live in lib/mlbGroups.ts so the parlay quote route names leg market types identically. The two
+// prefix namespaces are disjoint, so the merge never collides.
+const TYPE_LABELS: Record<string, string> = { ...WC_TYPE, ...MLB_TYPE };
+
 function marketTypeLabel(ev: any): string {
   const prefix = String(ev.event_ticker ?? "").split("-")[0];
-  if (WC_TYPE[prefix]) return WC_TYPE[prefix];
+  if (TYPE_LABELS[prefix]) return TYPE_LABELS[prefix];
   const title = String(ev.title ?? "");
   const i = title.indexOf(": ");
   return (i >= 0 ? title.slice(i + 2) : title).trim() || "Market";
 }
 
-// Group a category's events into one card PER MATCH. Every event ticker is
-// "<SERIES>-<date><teams>" (e.g. KXWCTOTAL-26JUL01ENGCOD), so the suffix after the first "-" is
-// the match key; all market types for the same match share it. The card lists every market's
-// outcomes (tagged with `group`, ordered by market volume then odds); the first group is the
-// primary market (the match odds) that the client shows inline, and the whole card opens a popup.
-function matchCardsFromEvents(events: any[], maxCards = 40): Card[] {
+// Group a category's events into one card PER MATCH. Every event ticker is "<SERIES>-<gameKey>"
+// (e.g. KXWCTOTAL-26JUL01ENGCOD, KXMLBHR-26JUL022210SDLAD), so the suffix after the first "-" is
+// the match key and every market-type event for the same match shares it. (Verified for MLB in
+// Parlay/reports/02-mlb-market-anatomy.md: player-prop player codes live in the MARKET ticker, not
+// the event ticker, so player-prop events group with the game with no special handling.) The card
+// lists every market's outcomes (tagged with `group`); `primarySeries` pins one market type inline
+// (MLB moneyline), else the highest-volume group leads. The whole card opens the full-markets popup.
+interface MatchOpts {
+  idPrefix?: string; // card id prefix; "WCM" (World Cup) by default, "MLBM" for MLB
+  primarySeries?: string; // the series pinned inline as the primary market (else highest volume)
+  mlbTitles?: boolean; // map MLB city names to club nicknames in the card title
+  startOffsetMin?: number; // minutes to add to occurrence_datetime to get the real kickoff
+}
+function matchCardsFromEvents(events: any[], opts: MatchOpts = {}, maxCards = 40): Card[] {
+  const idPrefix = opts.idPrefix ?? "WCM";
   const byMatch = new Map<string, any[]>();
   for (const ev of events) {
     const et = String(ev.event_ticker ?? "");
@@ -211,36 +256,54 @@ function matchCardsFromEvents(events: any[], maxCards = 40): Card[] {
 
   const cards: Card[] = [];
   for (const [key, evs] of byMatch) {
-    const groups: { label: string; vol: number; outcomes: Outcome[] }[] = [];
+    const groups: { label: string; series: string; vol: number; outcomes: Outcome[]; startTime: string }[] = [];
     for (const ev of evs) {
       const markets = ((ev.markets ?? []) as any[]).map(toLive).filter(isBuyable);
       if (!markets.length) continue;
       markets.sort((a, b) => oddsKey(b) - oddsKey(a));
       groups.push({
         label: marketTypeLabel(ev),
+        series: String(ev.event_ticker ?? "").split("-")[0],
         vol: Math.max(0, ...markets.map((m) => m.volume)),
         outcomes: markets.slice(0, MAX_OUTCOMES).map(toOutcome),
+        startTime: markets[0]?.start_time ?? "",
       });
     }
     if (!groups.length) continue;
-    groups.sort((a, b) => b.vol - a.vol); // primary (highest-volume) market first
+    // Primary market first: the pinned series if configured (MLB moneyline), else highest volume.
+    groups.sort((a, b) => {
+      if (opts.primarySeries) {
+        const pa = a.series === opts.primarySeries ? 0 : 1;
+        const pb = b.series === opts.primarySeries ? 0 : 1;
+        if (pa !== pb) return pa - pb;
+      }
+      return b.vol - a.vol;
+    });
     const outcomes = groups.flatMap((g) => g.outcomes.map((o) => ({ ...o, group: g.label })));
     const titleSrc =
       evs.map((e) => String(e.title ?? "")).find((t) => t.includes(" vs ")) ??
       String(evs[0].title ?? "");
-    const title = titleSrc.includes(" vs ") ? titleSrc.split(": ")[0].trim() : titleSrc.trim();
+    let title = titleSrc.includes(" vs ") ? titleSrc.split(": ")[0].trim() : titleSrc.trim();
+    if (opts.mlbTitles) title = mlbMatchup(title);
     const closeTimes = evs
       .flatMap((e) => ((e.markets ?? []) as any[]).map((m) => m.close_time as string))
       .filter(Boolean)
       .sort();
+    // The primary market's occurrence_datetime is the expected settlement; back out the real
+    // kickoff with the sport's offset (soccer settles ~3h after the scheduled start).
+    const occ = groups[0]?.startTime ? Date.parse(groups[0].startTime) : NaN;
+    const startTime = Number.isNaN(occ)
+      ? undefined
+      : new Date(occ + (opts.startOffsetMin ?? 0) * 60000).toISOString();
     cards.push({
-      id: "WCM-" + key,
+      id: idPrefix + "-" + key,
       title: title || key,
       vol: Math.max(0, ...groups.map((g) => g.vol)),
       market_count: groups.length,
       close_time: closeTimes[0] ?? "",
       outcomes,
       grouped: true,
+      start_time: startTime,
     });
   }
   cards.sort((a, b) => b.vol - a.vol);
@@ -458,6 +521,21 @@ const boardInflight = new Map<string, Promise<Card[]>>();
 export interface Board {
   cards: Card[];
   at: number; // when this board was assembled (server clock)
+}
+
+// Board-derived display info for one market: the card's clean title as the matchup (e.g.
+// "Switzerland vs Algeria" where the raw market title is "Will the final score be Draw 1-1?")
+// plus its market-type group label. Reads only the in-memory board cache (no Kalshi calls);
+// returns null on a cold instance or an unboarded ticker, and callers fall back to the
+// market-level fields.
+export function boardOutcomeInfo(ticker: string): { matchup: string; group?: string } | null {
+  for (const { cards } of boardCache.values()) {
+    for (const c of cards) {
+      const o = c.outcomes.find((x) => x.ticker === ticker);
+      if (o) return { matchup: c.title, group: o.group };
+    }
+  }
+  return null;
 }
 
 // Event cards for a category tab. Returns null for an unknown category key.

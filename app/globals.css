@@ -80,6 +80,29 @@ a {
 .btn:hover {
   border-color: #3a4150;
 }
+/* Icon-only button (the sidebar toggle). */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+}
+.icon-btn svg {
+  display: block;
+}
+.icon-btn.on {
+  color: #cfe0ff;
+  border-color: var(--accent);
+  background: rgba(91, 140, 255, 0.14);
+}
+/* Clickable table header (the Qty/Size unit toggle). */
+.th-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+.th-toggle:hover {
+  color: var(--text);
+}
 
 .dot {
   width: 7px;
@@ -166,7 +189,7 @@ a {
 }
 
 /* ---------------- Trading terminal ---------------- */
-.topbar{display:flex;align-items:center;gap:16px;padding:12px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(11,12,15,.9);backdrop-filter:blur(8px);z-index:5}
+.topbar{display:flex;align-items:center;flex-wrap:wrap;gap:16px;row-gap:10px;padding:12px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(11,12,15,.9);backdrop-filter:blur(8px);z-index:5}
 .topbar h1{font-size:15px;font-weight:650;margin:0;display:flex;align-items:center}
 .chips{display:flex;gap:10px;margin-left:6px;flex-wrap:wrap}
 .chip{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:6px 12px;min-width:104px}
@@ -178,16 +201,26 @@ a {
 .layout{display:grid;grid-template-columns:1fr 400px;gap:14px;padding:14px 20px 40px;align-items:start}
 .layout.solo{grid-template-columns:1fr}
 .right table td,.right table th{padding:7px 9px}
+/* The sidebar is a bounded flex column so Trade History grows to fit its rows and, once it would
+   reach the bottom of the viewport, caps there and scrolls internally (rather than a fixed height
+   that cuts off far above the bottom). Positions/builder keep their natural height; only the
+   history card shrinks. The offset matches the board's bottom (topbar + catbar + padding). */
+.right{display:flex;flex-direction:column;max-height:calc(100vh - 156px)}
+.right>.card{flex:0 0 auto}
+.right>.hist-card{flex:0 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.hist-card>.blotwrap{flex:0 1 auto;min-height:0}
 .poswrap table,.blotwrap table{table-layout:fixed}
 .poswrap th:nth-child(1){width:40%}
 .poswrap th:nth-child(2){width:16%}
 .poswrap th:nth-child(3){width:13%}
 .poswrap th:nth-child(4){width:13%}
 .poswrap th:nth-child(5){width:18%}
-.blotwrap th:nth-child(1){width:16%}
-.blotwrap th:nth-child(2){width:46%}
-.blotwrap th:nth-child(3){width:19%}
-.blotwrap th:nth-child(4){width:19%}
+.blotwrap th:nth-child(1){width:17%}
+.blotwrap th:nth-child(2){width:34%}
+.blotwrap th:nth-child(3){width:15%}
+.blotwrap th:nth-child(4){width:11%}
+.blotwrap th:nth-child(5){width:23%}
+.mkt{overflow:hidden;text-overflow:ellipsis}
 .mkt .team{font-weight:600;font-family:var(--sans)}
 .mkt .sub2{font-size:10.5px;color:var(--muted);font-family:var(--sans);max-width:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:12px}
@@ -200,7 +233,7 @@ th.l,td.l{text-align:left}
 td{padding:8px 12px;border-bottom:1px solid #1c1f26;font-family:var(--mono);text-align:right;white-space:nowrap}
 tbody tr:hover{background:var(--panel-2)}
 .team{font-family:var(--sans);font-weight:600}
-.boardwrap{max-height:calc(100vh - 200px);overflow:auto;scrollbar-width:none}
+.boardwrap{max-height:calc(100vh - 156px);overflow:auto;scrollbar-width:none}
 .boardwrap::-webkit-scrollbar{display:none}
 .poswrap,.blotwrap{overflow:auto;scrollbar-width:thin;scrollbar-color:#2a2f3a transparent}
 .poswrap::-webkit-scrollbar,.blotwrap::-webkit-scrollbar{width:8px;height:8px}
@@ -211,6 +244,8 @@ tbody tr:hover{background:var(--panel-2)}
 .catbar .cat{background:transparent;border:0;color:var(--muted);padding:12px 15px;cursor:pointer;font-size:13.5px;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap}
 .catbar .cat:hover{color:var(--text)}
 .catbar .cat.active{color:var(--text);border-bottom-color:var(--accent)}
+/* Action buttons pinned to the far right of the category bar (Parlay builder + sidebar toggle). */
+.catbar-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex:0 0 auto;padding-left:14px}
 .gc-more{display:block;width:100%;text-align:left;font-size:11px;color:var(--accent);background:transparent;border:0;padding:6px 0 0;cursor:pointer;font-family:var(--sans)}
 .gc-more:hover{color:#9bb6ff;text-decoration:underline}
 .modal.outcomes-modal{width:420px;max-width:calc(100vw - 32px)}
@@ -231,11 +266,14 @@ tbody tr:hover{background:var(--panel-2)}
 .mkt-group .gc-team .nm{min-width:0;overflow-wrap:anywhere}
 .mkt-group .gc-price{flex:0 0 auto}
 .hd-right{display:flex;align-items:center;gap:10px}
+/* Compact action buttons living in the markets-header row (Parlay builder + sidebar toggle). */
+.hd-btn{padding:5px 11px;font-size:12px}
+.hd-btn.icon-btn{padding:5px 9px}
 .sortseg{display:inline-flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
 .sortseg button{background:transparent;border:0;color:var(--muted);font-size:11px;padding:3px 9px;cursor:pointer;font-family:var(--sans)}
 .sortseg button:hover{color:var(--text)}
 .sortseg button.active{background:var(--panel-2);color:var(--text)}
-.board-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;padding:14px}
+.board-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;padding:14px}
 .game-card{background:var(--panel-2);border:1px solid var(--border);border-radius:12px;padding:13px 15px;display:flex;flex-direction:column}
 .gc-head{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 .gc-title{font-size:15px;font-weight:650;margin:6px 0 1px}
@@ -301,3 +339,69 @@ tbody tr:hover{background:var(--panel-2)}
 .switch input:checked + .track{background:rgba(91,140,255,.30);border-color:var(--accent)}
 .switch input:checked + .track::after{transform:translateX(16px);background:var(--accent)}
 .switch.on .lbl{color:var(--accent)}
+
+/* ---------------- Parlay builder ---------------- */
+/* Topbar toggle lights up like the Realistic switch when parlay mode is on. */
+.parlay-toggle.on{border-color:var(--accent);color:#cfe0ff;background:rgba(91,140,255,.14)}
+/* A price pill that is currently a parlay leg: accent glow so selected legs read at a glance. */
+.gc-price.inparlay{border-color:var(--accent);background:rgba(91,140,255,.30);color:#eaf1ff;box-shadow:0 0 0 1px var(--accent),0 0 10px rgba(91,140,255,.32)}
+.gc-price.inparlay:hover{background:rgba(91,140,255,.38)}
+.parlay-builder{border-color:#2c3550}
+.pb-body{padding:12px 15px}
+.pb-notice{font-size:11.5px;color:var(--amber);background:rgba(233,185,73,.10);border:1px solid rgba(233,185,73,.28);border-radius:7px;padding:6px 9px;margin-bottom:10px}
+.pb-empty{color:var(--muted);font-size:12.5px;text-align:center;padding:14px 6px}
+.pb-legs{display:flex;flex-direction:column;gap:6px}
+.pb-leg{background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:8px 10px}
+.pb-leg-main{display:flex;align-items:center;gap:8px}
+.pb-leg-team{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.pb-leg-right{display:flex;align-items:center;gap:8px;flex:0 0 auto;margin-left:auto}
+.pb-leg-mid{font-family:var(--mono);font-size:12.5px;color:#cfe0ff}
+.pb-leg-x{background:transparent;border:0;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
+.pb-leg-x:hover{color:var(--red)}
+.pb-leg-sub{font-size:10.5px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pb-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0 4px}
+.pb-clear{background:transparent;border:0;color:var(--muted);font-size:11px;cursor:pointer;padding:0;font-family:var(--sans)}
+.pb-clear:hover{color:var(--text);text-decoration:underline}
+/* "i in a circle" correlation chip + its hover/focus tooltip (the payout-discount breakdown).
+   .blocked = temporary parlay hold (lib/parlayHold.ts): red, and the Place button is disabled. */
+.pb-tool-notes{display:flex;flex-direction:column;gap:4px;min-width:0}
+.pb-corr{position:relative;display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--accent);cursor:help;font-family:var(--sans);outline:none}
+.pb-corr.blocked{color:var(--red)}
+.pb-corr-i{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1px solid currentColor;font-size:9.5px;font-weight:600;font-style:italic;font-family:Georgia,"Times New Roman",serif;line-height:1;padding-right:1px}
+.pb-corr-tip{display:none;position:absolute;left:0;bottom:calc(100% + 8px);width:256px;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-size:11.5px;color:var(--text);z-index:6;box-shadow:0 10px 28px rgba(0,0,0,.5);cursor:default}
+.pb-corr:hover .pb-corr-tip,.pb-corr:focus .pb-corr-tip{display:block}
+.pb-corr-tip .note{color:var(--muted);font-family:var(--sans);margin-bottom:7px;line-height:1.4}
+.pb-corr-tip .r{display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:11px;margin-top:3px}
+.pb-corr-tip .r span:first-child{color:var(--muted);font-family:var(--sans)}
+.pb-single{color:var(--muted);font-size:12px;text-align:center;padding:8px 0 2px}
+.pb-hero{display:flex;align-items:baseline;gap:8px;justify-content:center;padding:10px 0 4px}
+.pb-hero.muted{padding:16px 0}
+.pb-price{font-family:var(--mono);font-size:34px;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.pb-price-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.pb-warn{font-size:11px;color:var(--amber);background:rgba(233,185,73,.08);border-radius:6px;padding:5px 8px;margin:0 0 8px}
+.pb-payline{text-align:center;font-size:13px;color:var(--text);margin:6px 0 12px}
+.pb-payline b{font-family:var(--mono)}
+.pb-err{min-height:0;margin:0 0 8px}
+.pb-place{width:100%;padding:11px 0;font-size:13.5px}
+.pb-place:disabled{opacity:.5;cursor:default}
+/* Parlay as a Positions row + its detail / cash-out modal */
+.badge.parlay{background:rgba(91,140,255,.16);color:#9bb6ff}
+.parlay-pos .team{color:#cfe0ff}
+.parlay-pos.flash{animation:posflash 1.6s ease-out}
+@keyframes posflash{0%{background:rgba(91,140,255,.22)}100%{background:transparent}}
+.modal.parlay-detail{width:420px;max-width:calc(100vw - 28px)}
+.parlay-detail .pf-head{margin-bottom:12px}
+.pd-value{display:flex;justify-content:space-between;gap:12px;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:11px 13px;margin-bottom:12px}
+.pd-pnl-wrap{text-align:right}
+.pd-k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.pd-val{font-family:var(--mono);font-size:17px;font-weight:600;margin-top:2px}
+.pd-legs{display:flex;flex-direction:column;gap:7px;margin-bottom:13px}
+.pd-legs .pr-leg{padding:2px 0}
+.pr-leg{display:flex;align-items:center;gap:7px;font-size:12px}
+.pr-leg-team{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.pr-leg-grp{color:var(--muted);font-size:10.5px;margin-left:auto;flex:0 0 auto;white-space:nowrap}
+.pr-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--muted)}
+.pr-dot.pending{background:var(--amber)}
+.pr-dot.won{background:var(--green)}
+.pr-dot.lost{background:var(--red)}
+.pr-dot.void{background:var(--muted)}

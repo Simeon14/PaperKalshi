@@ -37,6 +37,13 @@ const MLB_TEAMS: [string, string, string][] = [
   ["WSH", "Washington", "Nationals"],
 ];
 
+// The 30 Kalshi team codes (e.g. "SD", "LAD"), for splitting the concatenated team pair in
+// game keys and player-prop ticker suffixes. Sorted longest-first so a greedy prefix match
+// prefers 3-char codes ("LAD") over any 2-char code.
+export const MLB_TEAM_CODES: string[] = MLB_TEAMS.map(([code]) => code).sort(
+  (a, b) => b.length - a.length || a.localeCompare(b),
+);
+
 const NICK_BY_CODE: Record<string, string> = Object.fromEntries(
   MLB_TEAMS.map(([code, , nick]) => [code, nick]),
 );

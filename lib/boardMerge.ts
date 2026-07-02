@@ -36,9 +36,16 @@ function sameCardShell(a: BoardCard, b: BoardCard): boolean {
     a.vol === b.vol &&
     a.market_count === b.market_count &&
     a.close_time === b.close_time &&
+    a.start_time === b.start_time &&
     a.grouped === b.grouped
   );
 }
+
+// A grouped card for an actual head-to-head match (title "X vs Y"), as opposed to a futures /
+// season-long market ("Will Spain qualify...", "Stage of Elimination"). Real matches always sort
+// ahead of everything else (e.g. World Cup lists the games before the tournament futures), in
+// both Vol and Date modes. Flat categories have no grouped cards, so this is a no-op for them.
+const isMatch = (c: BoardCard) => !!c.grouped && c.title.includes(" vs ");
 
 // Deterministic ordering (ties broken by id). Applied to establish the board's order on first
 // load / category switch / sort toggle, and to place newly-appeared cards among themselves.
@@ -46,15 +53,20 @@ function sameCardShell(a: BoardCard, b: BoardCard): boolean {
 // volume/price changes don't reshuffle it (see mergeBoards).
 export function sortCards(cards: BoardCard[], sortBy: SortBy): BoardCard[] {
   const byId = (a: BoardCard, b: BoardCard) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+  const rank = (c: BoardCard) => (isMatch(c) ? 0 : 1); // matches first
   const cs = [...cards];
   if (sortBy === "date") {
     cs.sort((a, b) => {
-      const ta = eventStart(a.id, a.close_time).ts;
-      const tb = eventStart(b.id, b.close_time).ts;
+      if (rank(a) !== rank(b)) return rank(a) - rank(b);
+      const ta = eventStart(a.id, a.close_time, a.start_time).ts;
+      const tb = eventStart(b.id, b.close_time, b.start_time).ts;
       return ta !== tb ? ta - tb : byId(a, b);
     });
   } else {
-    cs.sort((a, b) => (b.vol !== a.vol ? b.vol - a.vol : byId(a, b)));
+    cs.sort((a, b) => {
+      if (rank(a) !== rank(b)) return rank(a) - rank(b);
+      return b.vol !== a.vol ? b.vol - a.vol : byId(a, b);
+    });
   }
   return cs;
 }

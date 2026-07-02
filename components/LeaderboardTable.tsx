@@ -20,6 +20,13 @@ const money = (v: number) =>
   (v < 0 ? "-$" : "$") +
   Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const signed = (v: number) => (v >= 0 ? "+" : "") + money(v);
+// Whole-dollar P&L for the dense trade-history table (cents would force a wider column).
+// Sub-dollar amounts keep their cents: rounding them would misreport a small loss as "+$0".
+const signedWhole = (v: number) => {
+  const r = Math.round(v);
+  if (r === 0) return v === 0 ? "$0" : signed(v);
+  return (r > 0 ? "+$" : "-$") + Math.abs(r).toLocaleString();
+};
 const cls = (v: number) => (v > 0 ? "pos" : v < 0 ? "neg" : "");
 
 export default function LeaderboardTable({ rows }: { rows: Row[] }) {
@@ -189,6 +196,7 @@ export default function LeaderboardTable({ rows }: { rows: Row[] }) {
                           <th className="l">Market</th>
                           <th>Qty</th>
                           <th>Price</th>
+                          <th>P&amp;L</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -210,11 +218,14 @@ export default function LeaderboardTable({ rows }: { rows: Row[] }) {
                               </td>
                               <td>{f.count}</td>
                               <td>{f.price_c}¢</td>
+                              <td className={cls(f.realized)}>
+                                {f.action === "buy" ? "–" : signedWhole(f.realized)}
+                              </td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={4} className="empty">
+                            <td colSpan={5} className="empty">
                               No fills yet.
                             </td>
                           </tr>

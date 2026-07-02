@@ -15,20 +15,27 @@ describe("etToUtc", () => {
 });
 
 describe("eventStart", () => {
-  it("parses an MLB ticker (date + HHMM, US Eastern)", () => {
+  it("parses an MLB ticker (date + HHMM, US Eastern) and labels it ET", () => {
     const { ts, label } = eventStart("KXMLBGAME-26JUL042010SFCOL", "2026-07-08T00:10:00Z");
     expect(ts).toBe(Date.UTC(2026, 6, 5, 0, 10)); // NOT the close_time (start + 3 days)
     expect(label).toContain("·"); // date · time
+    expect(label).toContain("ET");
+  });
+  it("uses the World Cup occurrence datetime (date-only ticker), shown in ET", () => {
+    const { ts, label } = eventStart("KXWCGAME-26JUL05MEXENG", "", "2026-07-06T03:00:00Z");
+    expect(ts).toBe(Date.parse("2026-07-06T03:00:00Z"));
+    expect(label).toContain("ET");
+    expect(label).toContain("July 5"); // 03:00Z = 11:00 PM ET on July 5
   });
   it("parses a World Cup ticker (date only, no timezone shifting)", () => {
     const { ts, label } = eventStart("KXWCTOTAL-26JUL05BRANOR", "2026-07-19T00:00:00Z");
     expect(ts).toBe(Date.UTC(2026, 6, 5));
-    expect(label).toBe("Jul 5");
+    expect(label).toMatch(/, July 5$/); // weekday + full month, e.g. "Sun, July 5"
   });
   it("parses a WCM match-card id", () => {
     const { ts, label } = eventStart("WCM-26JUL01ENGCOD", "");
     expect(ts).toBe(Date.UTC(2026, 6, 1));
-    expect(label).toBe("Jul 1");
+    expect(label).toMatch(/, July 1$/);
   });
   it("parses a market ticker with a trailing outcome suffix", () => {
     const { ts } = eventStart("KXMLBGAME-26JUN271905STLCHC-STL", "");

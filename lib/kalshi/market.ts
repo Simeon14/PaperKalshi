@@ -17,6 +17,7 @@ export interface LiveMarket {
   status: string;
   result: string; // '' while active; 'yes' | 'no' once settled
   close_time: string;
+  start_time: string; // scheduled game datetime (Kalshi occurrence_datetime); "" if none
 }
 
 function cents(d: unknown): number | null {
@@ -62,6 +63,32 @@ export function isTradeable(m: LiveMarket): boolean {
   return m.status === "active" && !isResolved(m) && m.yes_ask_c !== null;
 }
 
+// Widest bid-ask (cents) at which a mid still means something. A live main-line book runs
+// 1-3c; a dead pre-game book (bid 0-5 / ask 97-98) "mids" to ~49c fiction. Perfect-liquidity
+// mode fills buys AT the mid, so fictional mids are exploitable (e.g. buying every NO side of
+// a dead mutually-exclusive set is a risk-free arb); the same constant guards the parlay legs.
+export const MAX_BOOK_SPREAD_C = 20;
+
+// True when the book is two-sided and tight enough that the mid is a real price. Field names
+// are shared by LiveMarket and the client Outcome, so the board, the pills, and the trade
+// route all apply the identical test. bid 0 is a real quote (penny longshots stay buyable).
+export function hasLiveBook(m: Pick<LiveMarket, "yes_bid_c" | "yes_ask_c">): boolean {
+  return (
+    m.yes_bid_c !== null && m.yes_ask_c !== null && m.yes_ask_c - m.yes_bid_c <= MAX_BOOK_SPREAD_C
+  );
+}
+
+// True when BOTH sides are quoted but so far apart that their average is fiction (bid 0 /
+// ask 97 "mids" to ~49c). A one-sided book is NOT fictional: mid() falls back to the single
+// real quote there. Exits and mark-to-market use this narrower test (a near-resolved market
+// often goes one-sided, and its real remaining quote is exactly what a mark should use);
+// ENTRY uses the stricter hasLiveBook.
+export function midIsFictional(m: Pick<LiveMarket, "yes_bid_c" | "yes_ask_c">): boolean {
+  return (
+    m.yes_bid_c !== null && m.yes_ask_c !== null && m.yes_ask_c - m.yes_bid_c > MAX_BOOK_SPREAD_C
+  );
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toLive(m: any): LiveMarket {
   const ticker = m.ticker ?? "";
@@ -82,6 +109,9 @@ export function toLive(m: any): LiveMarket {
     status: m.status ?? "",
     result: m.result ?? "",
     close_time: m.close_time ?? "",
+    // occurrence_datetime is the game's scheduled time; expected_expiration_time mirrors it.
+    // (close_time is ~2 weeks out for World Cup, so it is not a usable start time.)
+    start_time: m.occurrence_datetime ?? m.expected_expiration_time ?? "",
   };
 }
 

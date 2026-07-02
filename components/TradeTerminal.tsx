@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { takerFeeCents } from "@/lib/fees";
-import type { Outcome } from "@/lib/kalshi/market";
+import { hasLiveBook, type Outcome } from "@/lib/kalshi/market";
 import type { AccountState, PositionState } from "@/lib/account";
+import type { ParlayQuoteResponse } from "@/lib/parlayTypes";
+import { computeParlayHolds, PARLAY_HOLD_INFO } from "@/lib/parlayHold";
 import { eventStart } from "@/lib/kalshi/eventTime";
 import {
   mergeBoards,
@@ -27,13 +29,27 @@ const money = (v: number) =>
   Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const cls = (v: number) => (v > 0 ? "pos" : v < 0 ? "neg" : "");
 const signed = (v: number) => (v >= 0 ? "+" : "") + money(v);
+// P&L for the dense position/blotter tables: keep full cents under $10 (rounding a small loss to
+// "+$0" would misreport it), round to whole dollars at $10+ (cents would only widen the column).
+const signedAdaptive = (v: number) => {
+  if (Math.abs(v) < 10) return v === 0 ? "$0.00" : signed(v);
+  const r = Math.round(v);
+  return (r >= 0 ? "+$" : "-$") + Math.abs(r).toLocaleString();
+};
+// Dollar size (unsigned): full cents under $10, whole dollars at $10+.
+const dollarsAdaptive = (v: number) =>
+  Math.abs(v) < 10 ? money(v) : (v < 0 ? "-$" : "$") + Math.abs(Math.round(v)).toLocaleString();
 const fmtVol = (v: number) =>
   v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? Math.round(v / 1e3) + "k" : String(v);
 
 // The market-type header already conveys the market, so drop the noisy "... Reg Time:" prefix
 // from each outcome label inside a match view: "Reg Time: England" -> "England",
 // "Goal Diff Reg Time: England wins by more than 1.5 goals" -> "England wins by more than 1.5 goals".
-const wcLabel = (s: string) => (s || "").replace(/^.*?Reg(?:ulation)?\s*Time:\s*/i, "").trim();
+const wcLabel = (s: string) =>
+  (s || "")
+    .replace(/^.*?Reg(?:ulation)?\s*Time:\s*/i, "")
+    .replace(/\s+advances\b.*$/i, "") // "Argentina advances" -> "Argentina"
+    .trim();
 
 // Split a match card's outcomes into [marketTypeLabel, outcomes][] preserving the server order
 // (primary market first). The primary group (index 0) is the "match odds" shown inline.
@@ -51,6 +67,20 @@ function groupOutcomes(outcomes: Outcome[]): [string, Outcome[]][] {
 type Side = "yes" | "no";
 type Action = "buy" | "sell";
 type Unit = "contracts" | "dollars"; // how the quantity field is entered
+
+// A leg captured into the parlay slip. Display fields are snapshotted at add-time (so a leg row
+// renders immediately) and refreshed from the live quote response when it arrives.
+interface SelectedLeg {
+  ticker: string;
+  side: Side;
+  team: string;
+  matchup: string;
+  group?: string;
+  mid_c: number | null;
+}
+
+const PARLAY_MS = 1500; // combined-quote refresh while the builder has 2+ legs
+const PARLAY_TOLERANCE_C = 2; // max_price_c headroom over the shown price (absorbs a small tick)
 interface ModalState {
   open: boolean;
   ticker: string | null;
@@ -73,6 +103,10 @@ export default function TradeTerminal({ username }: { username: string }) {
   const [connected, setConnected] = useState(true);
   const [loadingMarkets, setLoadingMarkets] = useState(true);
   const [collapsed, setCollapsed] = useState(true);
+  const [sizeUnit, setSizeUnit] = useState<"qty" | "size">("qty"); // Qty (contracts) vs Size ($)
+  // Cached "realistic fills" for instant display on reload (the DB value is authoritative once the
+  // account loads; this only avoids a flash of the default while that fetch is in flight).
+  const [realisticPref, setRealisticPref] = useState(false);
   const [sortBy, setSortBy] = useState<"vol" | "date">("vol");
   const [modal, setModal] = useState<ModalState>({
     open: false,
@@ -88,7 +122,25 @@ export default function TradeTerminal({ username }: { username: string }) {
   const [ticketQuote, setTicketQuote] = useState<Outcome | null>(null);
   const [outcomesId, setOutcomesId] = useState<string | null>(null);
 
-  const realistic = account?.realistic ?? false;
+  // Parlay builder state. `legs` is the source of truth for the slip; `parlayQuote` is the live
+  // correlation-aware price. The slip survives category switches and toggling parlay mode off.
+  const [parlayMode, setParlayMode] = useState(false);
+  const [legs, setLegs] = useState<SelectedLeg[]>([]);
+  const [parlayQuote, setParlayQuote] = useState<ParlayQuoteResponse | null>(null);
+  const [parlayQty, setParlayQty] = useState("10");
+  const [parlayUnit, setParlayUnit] = useState<Unit>("contracts");
+  const [parlayBusy, setParlayBusy] = useState(false);
+  const [parlayErr, setParlayErr] = useState("");
+  const [parlayNotice, setParlayNotice] = useState(""); // transient info (pruned/blocked legs)
+  const [flashParlayId, setFlashParlayId] = useState<string | null>(null);
+  const parlayReq = useRef(0); // drops stale quote responses (mirrors categoryRef's technique)
+  // Open-parlay detail modal (opened from the Positions row) + cash-out state.
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailErr, setDetailErr] = useState("");
+  const [cashingOut, setCashingOut] = useState(false);
+  const detailOpenRef = useRef(false);
+
+  const realistic = account?.realistic ?? realisticPref;
   // The position behind an open Add/Trim ticket (source of the held count + avg cost).
   const heldPos =
     modal.position && account
@@ -97,6 +149,7 @@ export default function TradeTerminal({ username }: { username: string }) {
   const held = heldPos?.contracts ?? 0;
   const modalOpenRef = useRef(false);
   modalOpenRef.current = modal.open;
+  detailOpenRef.current = detailId !== null;
   const overlayMouseDown = useRef(false);
   const cardsRef = useRef<BoardCard[]>(cards);
   cardsRef.current = cards;
@@ -138,7 +191,7 @@ export default function TradeTerminal({ username }: { username: string }) {
   // Per-card start time + label (memoized so the rendered date matches the sort key).
   const timing = useMemo(() => {
     const m = new Map<string, { ts: number; label: string }>();
-    cards.forEach((c) => m.set(c.id, eventStart(c.id, c.close_time)));
+    cards.forEach((c) => m.set(c.id, eventStart(c.id, c.close_time, c.start_time)));
     return m;
   }, [cards]);
 
@@ -207,11 +260,30 @@ export default function TradeTerminal({ username }: { username: string }) {
       const stored = localStorage.getItem("paperCollapsed");
       // Hidden by default; only an explicit "show" choice un-collapses it.
       setCollapsed(stored === null ? true : stored === "1");
+      const su = localStorage.getItem("posSizeUnit");
+      if (su === "size" || su === "qty") setSizeUnit(su);
+      const rf = localStorage.getItem("realisticFills");
+      if (rf === "1" || rf === "0") setRealisticPref(rf === "1");
+      const sb = localStorage.getItem("sortBy");
+      if (sb === "vol" || sb === "date") setSortBy(sb);
     } catch {
       /* ignore */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep the cached "realistic fills" in sync with the authoritative DB value, so the next reload
+  // shows the right toggle state instantly (no flash of the default while the account loads).
+  const acctRealistic = account?.realistic;
+  useEffect(() => {
+    if (acctRealistic === undefined) return;
+    setRealisticPref(acctRealistic);
+    try {
+      localStorage.setItem("realisticFills", acctRealistic ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [acctRealistic]);
 
   // Full board structure (which cards exist) on a slow cadence; the fast tick keeps prices live.
   useEffect(() => {
@@ -251,6 +323,7 @@ export default function TradeTerminal({ username }: { username: string }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (modalOpenRef.current) setModal((m) => ({ ...m, open: false }));
+      else if (detailOpenRef.current) setDetailId(null);
       else setOutcomesId(null);
     };
     window.addEventListener("keydown", onKey);
@@ -476,10 +549,33 @@ export default function TradeTerminal({ username }: { username: string }) {
   }
 
   function toggleCollapsed() {
-    setCollapsed((c) => {
-      const next = !c;
+    const next = !collapsed;
+    setCollapsed(next);
+    if (next) setParlayMode(false); // closing the sidebar also exits the parlay builder
+    try {
+      localStorage.setItem("paperCollapsed", next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Choose the board sort (volume vs date) and remember it for next login.
+  function chooseSort(next: "vol" | "date") {
+    setSortBy(next);
+    try {
+      localStorage.setItem("sortBy", next);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Toggle the Qty/Size columns (contracts vs dollar size) across the position + blotter tables,
+  // and remember the choice for next login.
+  function toggleSizeUnit() {
+    setSizeUnit((u) => {
+      const next = u === "qty" ? "size" : "qty";
       try {
-        localStorage.setItem("paperCollapsed", next ? "1" : "0");
+        localStorage.setItem("posSizeUnit", next);
       } catch {
         /* ignore */
       }
@@ -493,18 +589,258 @@ export default function TradeTerminal({ username }: { username: string }) {
     router.refresh();
   }
 
+  // ---- parlay builder ----
+  const parlaySelected = useMemo(
+    () => new Set(legs.map((l) => l.ticker + ":" + l.side)),
+    [legs],
+  );
+  // TEMPORARY hold (lib/parlayHold.ts): non-empty means the slip can be built but not placed.
+  // The trade route enforces the same rule server-side.
+  const parlayHoldList = useMemo(() => computeParlayHolds(legs.map((l) => l.ticker)), [legs]);
+
+  // Toggle a leg in/out of the slip. Blocks both sides of one market and caps at 10 legs.
+  function toggleLeg(ticker: string, side: Side) {
+    const i = legs.findIndex((l) => l.ticker === ticker && l.side === side);
+    if (i >= 0) {
+      setLegs(legs.filter((_, j) => j !== i));
+      setParlayNotice("");
+      return;
+    }
+    if (legs.some((l) => l.ticker === ticker)) {
+      setParlayNotice("A parlay can't take both sides of the same market.");
+      return;
+    }
+    if (legs.length >= 10) {
+      setParlayNotice("A parlay can have at most 10 legs.");
+      return;
+    }
+    let o: BoardOutcome | undefined;
+    let matchup = "";
+    for (const c of cards) {
+      const hit = c.outcomes.find((x) => x.ticker === ticker);
+      if (hit) {
+        o = hit;
+        // Grouped match cards: the card title is the clean game name ("France vs England");
+        // the outcome-level matchup can be a raw market question ("Will the final score be...").
+        matchup = c.grouped ? c.title : hit.matchup ?? "";
+        break;
+      }
+    }
+    const mid = o ? (side === "yes" ? o.yes_mid_c : o.no_mid_c) : null;
+    setParlayNotice("");
+    setLegs([
+      ...legs,
+      { ticker, side, team: o?.team ?? ticker, matchup, group: o?.group, mid_c: mid },
+    ]);
+  }
+
+  function clearParlay() {
+    setLegs([]);
+    setParlayQuote(null);
+    setParlayErr("");
+    setParlayNotice("");
+  }
+
+  // Cash out an open parlay at its current marked value (the server recomputes it from fresh
+  // quotes; a leg that already resolved settles normally instead).
+  async function cashOut(id: string) {
+    if (cashingOut) return;
+    setCashingOut(true);
+    setDetailErr("");
+    try {
+      const r = await fetch("/api/parlay/cashout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error || "HTTP " + r.status);
+      }
+      const d = await r.json();
+      setAccount(d.account);
+      setDetailId(null);
+    } catch (e) {
+      setDetailErr(e instanceof Error ? e.message : "Cash out failed.");
+    } finally {
+      setCashingOut(false);
+    }
+  }
+
+  function toggleParlayMode() {
+    const next = !parlayMode;
+    setParlayMode(next); // keep the slip when leaving parlay mode
+    // Opening the builder brings the whole sidebar in, so Positions + Trade History load too.
+    if (next && collapsed) {
+      setCollapsed(false);
+      try {
+        localStorage.setItem("paperCollapsed", "0");
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  // Switch the parlay quantity field between contracts and dollars at the live combined price.
+  function setParlayUnitConv(unit: Unit) {
+    if (unit === parlayUnit) return;
+    const priceC = parlayQuote?.price_c ?? null;
+    if (priceC && priceC > 0) {
+      setParlayQty((cur) => {
+        if (unit === "dollars") {
+          const c = parseInt(cur || "0", 10) || 0;
+          return c > 0 ? (Math.round(c * priceC) / 100).toFixed(2) : "";
+        }
+        const dollars = parseFloat(cur || "0") || 0;
+        const c = Math.floor((dollars * 100) / priceC);
+        return c > 0 ? String(c) : "";
+      });
+    }
+    setParlayUnit(unit);
+  }
+
+  async function placeParlay() {
+    if (parlayBusy || !parlayQuote || parlayHoldList.length > 0) return;
+    const priceC = parlayQuote.price_c;
+    // Contracts: fixed integer count. Dollars: fixed stake, count is the implied contract number.
+    let count: number;
+    let costC: number;
+    if (parlayUnit === "dollars") {
+      costC = Math.round((parseFloat(parlayQty || "0") || 0) * 100);
+      count = Math.max(1, Math.round(costC / priceC));
+      if (costC < 1) {
+        setParlayErr("Enter an amount.");
+        return;
+      }
+    } else {
+      count = Math.max(0, parseInt(parlayQty || "0", 10) || 0);
+      costC = count * priceC;
+      if (count < 1) {
+        setParlayErr("Enter a quantity.");
+        return;
+      }
+    }
+    setParlayBusy(true);
+    setParlayErr("");
+    try {
+      const r = await fetch("/api/parlay/trade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          legs: legs.map((l) => ({ ticker: l.ticker, side: l.side })),
+          unit: parlayUnit,
+          count,
+          cost_c: costC,
+          max_price_c: priceC + PARLAY_TOLERANCE_C,
+        }),
+      });
+      if (r.status === 409) {
+        // Reprice: show the fresh price inline; the Place button becomes the one-click accept.
+        const e = await r.json().catch(() => ({}));
+        if (e.quote) setParlayQuote(e.quote);
+        setParlayErr(`Price moved to ${e.quote?.price_c ?? "?"}¢. Place again to accept.`);
+        return;
+      }
+      if (r.status === 400) {
+        const e = await r.json().catch(() => ({}));
+        if (Array.isArray(e.invalid) && e.invalid.length) {
+          const bad = new Set(e.invalid);
+          setLegs((prev) => prev.filter((l) => !bad.has(l.ticker)));
+          setParlayNotice(`Removed ${e.invalid.length} leg(s) no longer available.`);
+          return;
+        }
+        throw new Error(e.error || "Parlay rejected.");
+      }
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error || "HTTP " + r.status);
+      }
+      const d = await r.json();
+      setAccount(d.account);
+      clearParlay();
+      if (d.parlay?.id) {
+        const newId: string = d.parlay.id;
+        setFlashParlayId(newId);
+        window.setTimeout(() => setFlashParlayId((id) => (id === newId ? null : id)), 1600);
+      }
+    } catch (e) {
+      setParlayErr(e instanceof Error ? e.message : "Parlay failed.");
+    } finally {
+      setParlayBusy(false);
+    }
+  }
+
+  // Live combined quote while the builder has 2+ legs: POST every 1.5s, pause when the tab is
+  // hidden, snap on return, and drop stale responses. A single leg shows its own mid (no call).
+  useEffect(() => {
+    if (!parlayMode || legs.length < 2) {
+      setParlayQuote(null);
+      return;
+    }
+    const body = JSON.stringify({ legs: legs.map((l) => ({ ticker: l.ticker, side: l.side })) });
+    let cancelled = false;
+    const tick = async () => {
+      if (document.hidden) return;
+      const myReq = ++parlayReq.current;
+      try {
+        const r = await fetch("/api/parlay/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+        });
+        if (cancelled || myReq !== parlayReq.current) return; // a newer request superseded this one
+        if (r.status === 400) {
+          const e = await r.json().catch(() => ({}));
+          if (Array.isArray(e.invalid) && e.invalid.length) {
+            const bad = new Set(e.invalid);
+            setLegs((prev) => prev.filter((l) => !bad.has(l.ticker)));
+            setParlayNotice(`Removed ${e.invalid.length} leg(s) no longer available.`);
+          } else {
+            setParlayErr(e.error || "Couldn't price that parlay.");
+          }
+          return;
+        }
+        if (!r.ok) return;
+        const q = (await r.json()) as ParlayQuoteResponse;
+        if (!cancelled && myReq === parlayReq.current) {
+          setParlayQuote(q);
+          setParlayErr("");
+        }
+      } catch {
+        /* ignore a dropped tick */
+      }
+    };
+    tick();
+    const id = setInterval(tick, PARLAY_MS);
+    const onVis = () => {
+      if (!document.hidden) tick();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [parlayMode, legs]);
+
   // ---- render helpers ----
   function pill(o: Outcome, side: Side) {
     const ask = side === "yes" ? o.yes_ask_c : o.no_ask_c;
     const px = realistic ? ask : side === "yes" ? o.yes_mid_c : o.no_mid_c;
-    if (o.tradeable && px != null && px >= 1 && px <= 99) {
+    // Mid prices are fiction on a one-sided book; the board filters dead books at build time,
+    // and this guard catches one dying between structure refreshes (quote patches carry the
+    // live bid/ask). Realistic mode shows the real ask, which is always honest.
+    if (o.tradeable && px != null && px >= 1 && px <= 99 && (realistic || hasLiveBook(o))) {
+      const inParlay = parlayMode && parlaySelected.has(o.ticker + ":" + side);
       return (
         <button
           type="button"
-          className="gc-price"
+          className={"gc-price" + (inParlay ? " inparlay" : "")}
+          title={parlayMode ? (inParlay ? "Remove from parlay" : "Add to parlay") : undefined}
           onClick={(e) => {
-            e.stopPropagation(); // bet, don't also open the match popup on grouped cards
-            openTicket(o.ticker, side);
+            e.stopPropagation(); // bet / add-leg, don't also open the match popup on grouped cards
+            if (parlayMode) toggleLeg(o.ticker, side);
+            else openTicket(o.ticker, side);
           }}
         >
           {px}¢
@@ -591,6 +927,51 @@ export default function TradeTerminal({ username }: { username: string }) {
   // games: World Cup ~2 weeks late, MLB start + 3 days), same source as the board cards.
   const ticketWhen = modal.ticker && ticket ? eventStart(modal.ticker, ticket.close_time).label : "";
 
+  // Parlay builder sizing. Contracts mode: integer contracts, cost = count*price, win = count*$1.
+  // Dollars mode: the entered amount is the exact stake, win = stake*multiple (fractional cents),
+  // and the contract count is the implied number of $1-payout contracts.
+  const parlayPriceC = parlayQuote?.price_c ?? null;
+  let parlayCount = 0;
+  let parlayCostC = 0;
+  let parlayWinC = 0;
+  if (parlayPriceC != null && parlayPriceC > 0) {
+    if (parlayUnit === "dollars") {
+      parlayCostC = Math.round((parseFloat(parlayQty || "0") || 0) * 100);
+      parlayWinC = Math.round((parlayCostC * 100) / parlayPriceC);
+      parlayCount = Math.round(parlayCostC / parlayPriceC);
+    } else {
+      parlayCount = Math.max(0, parseInt(parlayQty || "0", 10) || 0);
+      parlayCostC = parlayCount * parlayPriceC;
+      parlayWinC = parlayCount * 100;
+    }
+  }
+  const parlayValid = parlayCostC >= 1 && parlayCount >= 1;
+  const parlayIndepC = parlayQuote
+    ? Math.min(99, Math.max(1, Math.round(parlayQuote.independent_q * 100)))
+    : 0;
+  // Return multiple for a price (a 2c parlay pays 50x = 100c payout / 2c paid).
+  const fmtMult = (priceC: number) => {
+    const m = priceC > 0 ? 100 / priceC : 0;
+    return m >= 10 ? String(Math.round(m)) : (Math.round(m * 10) / 10).toString();
+  };
+  const parlayMultLabel = parlayQuote ? fmtMult(parlayQuote.price_c) : "0";
+  // Correlation indicator: shown when the model moved the price a visible cent off the
+  // independence product. Positive correlation shortens the odds (payout reduced); negative
+  // lengthens them (payout boosted).
+  const parlayCorrShown = !!parlayQuote && parlayIndepC !== parlayQuote.price_c;
+  const parlayCorrReduced = !!parlayQuote && parlayQuote.price_c > parlayIndepC;
+  const parlayCorrPct =
+    parlayQuote && parlayQuote.price_c > 0
+      ? Math.round(Math.abs(parlayIndepC / parlayQuote.price_c - 1) * 100)
+      : 0;
+  const openParlays = account?.parlays ?? [];
+  // Looked up live so the modal's value/P&L keep updating from the account poll while it's open.
+  const detailParlay = detailId ? openParlays.find((p) => p.id === detailId) ?? null : null;
+  const positionsOpen = (account?.positions.length ?? 0) + openParlays.length;
+  // The sidebar toggle fully controls its visibility. Enabling parlay mode un-collapses it so the
+  // builder is visible; collapsing then hides the whole sidebar (builder + positions + history).
+  const rightShown = !collapsed;
+
   return (
     <>
       <div className="topbar">
@@ -615,9 +996,6 @@ export default function TradeTerminal({ username }: { username: string }) {
           <input type="checkbox" checked={realistic} onChange={(e) => toggleRealistic(e.target.checked)} />
           <span className="track" aria-hidden="true" />
         </label>
-        <button className="btn" onClick={toggleCollapsed}>
-          {collapsed ? "Show positions" : "Hide positions"}
-        </button>
         <Link className="btn" href="/leaderboard">
           Leaderboard
         </Link>
@@ -636,36 +1014,38 @@ export default function TradeTerminal({ username }: { username: string }) {
             {c.label}
           </button>
         ))}
+        <div className="catbar-actions">
+          <div className="sortseg" title="Sort markets by volume or date">
+            <button className={sortBy === "vol" ? "active" : ""} onClick={() => chooseSort("vol")}>
+              Vol
+            </button>
+            <button className={sortBy === "date" ? "active" : ""} onClick={() => chooseSort("date")}>
+              Date
+            </button>
+          </div>
+          <button
+            className={"btn hd-btn parlay-toggle" + (parlayMode ? " on" : "")}
+            onClick={toggleParlayMode}
+            title="Build a same-game parlay: in parlay mode, clicking market prices adds them as legs"
+          >
+            {parlayMode ? "Exit parlay" : "Parlay builder"}
+          </button>
+          <button
+            className={"btn hd-btn icon-btn" + (collapsed ? "" : " on")}
+            onClick={toggleCollapsed}
+            title={collapsed ? "Show positions & parlays" : "Hide positions & parlays"}
+            aria-label={collapsed ? "Show positions" : "Hide positions"}
+          >
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+              <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2" />
+              <line x1="10" y1="3" x2="10" y2="13" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <div className={"layout" + (collapsed ? " solo" : "")}>
+      <div className={"layout" + (rightShown ? "" : " solo")}>
         <div className="card">
-          <div className="hd">
-            <h3>{catLabel === "MLB" ? "MLB markets" : catLabel}</h3>
-            <div className="hd-right">
-              <span className="sub">
-                {loadingMarkets && cards.length === 0
-                  ? "loading…"
-                  : connected
-                    ? `${cards.length} markets · live`
-                    : "market data unavailable"}
-              </span>
-              <div className="sortseg" title="Sort markets by volume or date">
-                <button
-                  className={sortBy === "vol" ? "active" : ""}
-                  onClick={() => setSortBy("vol")}
-                >
-                  Vol
-                </button>
-                <button
-                  className={sortBy === "date" ? "active" : ""}
-                  onClick={() => setSortBy("date")}
-                >
-                  Date
-                </button>
-              </div>
-            </div>
-          </div>
           <div className="boardwrap" ref={scrollRef}>
             <div className="board-grid">
               {cards.length === 0 ? (
@@ -746,50 +1126,257 @@ export default function TradeTerminal({ username }: { username: string }) {
           </div>
         </div>
 
-        {!collapsed && (
+        {rightShown && (
           <div className="right">
+            {parlayMode && (
+              <div className="card parlay-builder" style={{ marginBottom: 14 }}>
+                <div className="hd">
+                  <h3>Parlay builder</h3>
+                  <span className="sub">
+                    {legs.length ? `${legs.length} leg${legs.length === 1 ? "" : "s"}` : ""}
+                  </span>
+                </div>
+                <div className="pb-body">
+                  {parlayNotice && <div className="pb-notice">{parlayNotice}</div>}
+                  {legs.length === 0 ? (
+                    <div className="pb-empty">Click market prices to add legs.</div>
+                  ) : (
+                    <>
+                      <div className="pb-legs">
+                        {legs.map((l) => {
+                          const q = parlayQuote?.legs.find(
+                            (x) => x.ticker === l.ticker && x.side === l.side,
+                          );
+                          const mid = q?.mid_c ?? l.mid_c;
+                          const grp = q?.group || l.group || "";
+                          // Prefer the add-time capture (the grouped card's clean game name);
+                          // the server matchup covers legs restored without board context.
+                          const matchup = l.matchup || q?.matchup || "";
+                          return (
+                            <div className="pb-leg" key={l.ticker + ":" + l.side}>
+                              <div className="pb-leg-main">
+                                <span className="pb-leg-team">{wcLabel(q?.team || l.team) || "Leg"}</span>
+                                <span className={"badge " + l.side}>{l.side.toUpperCase()}</span>
+                                <div className="pb-leg-right">
+                                  <span className="pb-leg-mid">{mid != null ? mid + "¢" : "—"}</span>
+                                  <button
+                                    className="pb-leg-x"
+                                    title="Remove leg"
+                                    onClick={() => toggleLeg(l.ticker, l.side)}
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              </div>
+                              {(grp || matchup) && (
+                                <div className="pb-leg-sub">
+                                  {grp}
+                                  {grp && matchup ? " · " : ""}
+                                  {matchup}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="pb-tools">
+                        {parlayHoldList.length > 0 ? (
+                          <div className="pb-tool-notes">
+                            {parlayHoldList.map((h) => (
+                              <span className="pb-corr blocked" tabIndex={0} key={h}>
+                                <span className="pb-corr-i">i</span> {PARLAY_HOLD_INFO[h].label}
+                                <span className="pb-corr-tip" role="tooltip">
+                                  <div className="note">{PARLAY_HOLD_INFO[h].tip}</div>
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : parlayCorrShown && parlayQuote ? (
+                          <span className="pb-corr" tabIndex={0}>
+                            <span className="pb-corr-i">i</span> Correlated legs
+                            <span className="pb-corr-tip" role="tooltip">
+                              <div className="note">
+                                {parlayCorrReduced
+                                  ? "Some of these legs tend to hit together, so the combined odds are shorter than the legs multiplied out."
+                                  : "Some of these legs rarely hit together, so the combined odds are longer than the legs multiplied out."}
+                              </div>
+                              <div className="r">
+                                <span>If independent</span>
+                                <span>
+                                  {parlayIndepC}¢ · {fmtMult(parlayIndepC)}x
+                                </span>
+                              </div>
+                              <div className="r">
+                                <span>With correlation</span>
+                                <span>
+                                  {parlayQuote.price_c}¢ · {parlayMultLabel}x
+                                </span>
+                              </div>
+                              <div className="r">
+                                <span>Payout {parlayCorrReduced ? "reduced" : "boosted"}</span>
+                                <span>{parlayCorrPct}%</span>
+                              </div>
+                            </span>
+                          </span>
+                        ) : (
+                          <span />
+                        )}
+                        <button className="pb-clear" onClick={clearParlay}>
+                          Clear all
+                        </button>
+                      </div>
+
+                      {legs.length === 1 && (
+                        <div className="pb-single">Add at least one more leg to build a parlay.</div>
+                      )}
+
+                      {legs.length >= 2 &&
+                        (!parlayQuote ? (
+                          <div className="pb-hero muted">Pricing…</div>
+                        ) : (
+                          <>
+                            <div className="pb-hero">
+                              <span className="pb-price">{parlayMultLabel}x</span>
+                              <span className="pb-price-lbl">return</span>
+                            </div>
+                            {parlayQuote.warnings.map((w, i) => (
+                              <div className="pb-warn" key={i}>
+                                {w}
+                              </div>
+                            ))}
+                            <div className="field">
+                              <div className="field-hd">
+                                <label>
+                                  {parlayUnit === "dollars" ? "Amount (dollars)" : "Quantity (contracts)"}
+                                </label>
+                                <div className="unitseg" title="Enter the size in contracts or in dollars">
+                                  <button
+                                    className={parlayUnit === "contracts" ? "active" : ""}
+                                    onClick={() => setParlayUnitConv("contracts")}
+                                  >
+                                    Contracts
+                                  </button>
+                                  <button
+                                    className={parlayUnit === "dollars" ? "active" : ""}
+                                    onClick={() => setParlayUnitConv("dollars")}
+                                  >
+                                    Dollars
+                                  </button>
+                                </div>
+                              </div>
+                              <input
+                                type="number"
+                                min={parlayUnit === "dollars" ? "0" : "1"}
+                                step={parlayUnit === "dollars" ? "0.01" : "1"}
+                                value={parlayQty}
+                                onChange={(e) => setParlayQty(e.target.value)}
+                              />
+                            </div>
+                            <div className="summary">
+                              <div className="r">
+                                <span>Combined price</span>
+                                <span>{parlayQuote.price_c}¢</span>
+                              </div>
+                              {parlayUnit === "contracts" && (
+                                <div className="r">
+                                  <span>Contracts</span>
+                                  <span>{parlayCount}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="pb-payline">
+                              Pay <b>{money(parlayCostC / 100)}</b> to win <b>{money(parlayWinC / 100)}</b>
+                            </div>
+                            {parlayErr && <div className="err pb-err">{parlayErr}</div>}
+                            <button
+                              className="confirm btn pb-place"
+                              disabled={parlayBusy || !parlayValid || parlayHoldList.length > 0}
+                              onClick={placeParlay}
+                            >
+                              {parlayBusy ? "Placing…" : "Place parlay"}
+                            </button>
+                          </>
+                        ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!collapsed && (
+              <>
             <div className="card" style={{ marginBottom: 14 }}>
               <div className="hd">
                 <h3>Positions</h3>
-                <span className="sub">{account?.positions.length ? `${account.positions.length} open` : ""}</span>
+                <span className="sub">{positionsOpen ? `${positionsOpen} open` : ""}</span>
               </div>
               <div className="poswrap">
                 <table>
                   <thead>
                     <tr>
                       <th className="l">Market</th>
-                      <th>Qty</th>
+                      <th className="th-toggle" onClick={toggleSizeUnit} title="Toggle contracts / dollar size">
+                        {sizeUnit === "size" ? "Size" : "Qty"}
+                      </th>
                       <th>Avg</th>
                       <th>Mark</th>
                       <th>uP&amp;L</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {account?.positions.length ? (
-                      account.positions.map((p) => (
+                    {openParlays.map((p) => {
+                      const avgC = p.count ? Math.round((p.cost * 100 / p.count) * 10) / 10 : 0;
+                      const markC = p.count ? Math.round((p.value * 100) / p.count) : 0;
+                      return (
                         <tr
-                          key={p.ticker + ":" + p.side}
-                          className="pos-row"
-                          title="Add to or trim this position"
-                          onClick={() => openPosition(p)}
+                          key={"parlay:" + p.id}
+                          className={"pos-row parlay-pos" + (flashParlayId === p.id ? " flash" : "")}
+                          title="View legs and cash out"
+                          onClick={() => {
+                            setDetailErr("");
+                            setDetailId(p.id);
+                          }}
                         >
                           <td className="l">
                             <div className="mkt">
-                              <span className="team">{p.team}</span>{" "}
-                              <span className={"badge " + p.side}>{p.side.toUpperCase()}</span>
-                              <div className="sub2">{p.matchup}</div>
+                              <span className="team">{p.legs.length}-leg parlay</span>{" "}
+                              <span className="badge parlay">PARLAY</span>
+                              <div className="sub2">
+                                {p.price_c}¢ → 100¢ · win {money(p.potential_payout)}
+                              </div>
                             </div>
                           </td>
-                          <td>{p.contracts}</td>
-                          <td>{p.avg_price_c}¢</td>
-                          <td>{p.mark_c == null ? "–" : p.mark_c + "¢"}</td>
-                          <td className={cls(p.unrealized)}>{signed(p.unrealized)}</td>
+                          <td>{sizeUnit === "size" ? dollarsAdaptive(p.value) : p.count}</td>
+                          <td>{avgC}¢</td>
+                          <td>{markC}¢</td>
+                          <td className={cls(p.unrealized)}>{signedAdaptive(p.unrealized)}</td>
                         </tr>
-                      ))
-                    ) : (
+                      );
+                    })}
+                    {account?.positions.map((p) => (
+                      <tr
+                        key={p.ticker + ":" + p.side}
+                        className="pos-row"
+                        title="Add to or trim this position"
+                        onClick={() => openPosition(p)}
+                      >
+                        <td className="l">
+                          <div className="mkt">
+                            <span className="team">{p.team}</span>{" "}
+                            <span className={"badge " + p.side}>{p.side.toUpperCase()}</span>
+                            <div className="sub2">{p.matchup}</div>
+                          </div>
+                        </td>
+                        <td>{sizeUnit === "size" ? dollarsAdaptive(p.value) : p.contracts}</td>
+                        <td>{p.avg_price_c}¢</td>
+                        <td>{p.mark_c == null ? "–" : p.mark_c + "¢"}</td>
+                        <td className={cls(p.unrealized)}>{signedAdaptive(p.unrealized)}</td>
+                      </tr>
+                    ))}
+                    {!positionsOpen && (
                       <tr>
                         <td colSpan={5} className="empty">
-                          No open positions. Click a price to back a team.
+                          No open positions or parlays. Click a price to back a team.
                         </td>
                       </tr>
                     )}
@@ -798,19 +1385,22 @@ export default function TradeTerminal({ username }: { username: string }) {
               </div>
             </div>
 
-            <div className="card">
+            <div className="card hist-card">
               <div className="hd">
                 <h3>Trade History</h3>
                 <span className="sub">recent fills</span>
               </div>
-              <div className="blotwrap" style={{ maxHeight: 300 }}>
+              <div className="blotwrap">
                 <table>
                   <thead>
                     <tr>
                       <th className="l">Action</th>
                       <th className="l">Market</th>
-                      <th>Qty</th>
-                      <th>Price</th>
+                      <th className="th-toggle" onClick={toggleSizeUnit} title="Toggle contracts / dollar size">
+                        {sizeUnit === "size" ? "Size" : "Qty"}
+                      </th>
+                      <th>Odds</th>
+                      <th>P&amp;L</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -820,6 +1410,8 @@ export default function TradeTerminal({ username }: { username: string }) {
                           <td className="l">
                             {f.action === "settle" ? (
                               <span className="badge settle">settled</span>
+                            ) : f.action === "cashout" ? (
+                              <span className="badge settle">cashed</span>
                             ) : (
                               <span className={"badge " + f.side}>{f.side.toUpperCase()}</span>
                             )}
@@ -830,13 +1422,16 @@ export default function TradeTerminal({ username }: { username: string }) {
                               <div className="sub2">{f.matchup}</div>
                             </div>
                           </td>
-                          <td>{f.count}</td>
-                          <td>{f.price_c}¢</td>
+                          <td>{sizeUnit === "size" ? dollarsAdaptive((f.count * f.price_c) / 100) : f.count}</td>
+                          <td>{f.price_c}%</td>
+                          <td className={cls(f.realized)}>
+                            {f.action === "buy" ? "–" : signedAdaptive(f.realized)}
+                          </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={4} className="empty">
+                        <td colSpan={5} className="empty">
                           No fills yet.
                         </td>
                       </tr>
@@ -845,6 +1440,8 @@ export default function TradeTerminal({ username }: { username: string }) {
                 </table>
               </div>
             </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1127,6 +1724,68 @@ export default function TradeTerminal({ username }: { username: string }) {
                   : closeCount > 0 && openCount === 0
                     ? `Close ${closeCount} ${oppSide === "yes" ? "Yes" : "No"}`
                     : "Buy " + (modal.side === "yes" ? "Yes" : "No")}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div
+        className={"overlay" + (detailParlay ? " show" : "")}
+        onMouseDown={(e) => {
+          overlayMouseDown.current = e.target === e.currentTarget;
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && overlayMouseDown.current) setDetailId(null);
+        }}
+      >
+        {detailParlay && (
+          <div className="modal parlay-detail">
+            <div className="pf-head">
+              <div>
+                <h3>{detailParlay.legs.length}-leg parlay</h3>
+                <div className="mk">
+                  {detailParlay.price_c}¢ → 100¢ · pay {money(detailParlay.cost)} · win{" "}
+                  {money(detailParlay.potential_payout)}
+                </div>
+              </div>
+              <button className="btn" onClick={() => setDetailId(null)}>
+                Close
+              </button>
+            </div>
+            <div className="pd-value">
+              <div>
+                <div className="pd-k">Current value</div>
+                <div className="pd-val">{money(detailParlay.value)}</div>
+              </div>
+              <div className="pd-pnl-wrap">
+                <div className="pd-k">P&amp;L</div>
+                <div className={"pd-val " + cls(detailParlay.unrealized)}>
+                  {signed(detailParlay.unrealized)}
+                </div>
+              </div>
+            </div>
+            <div className="pd-legs">
+              {detailParlay.legs.map((l, i) => (
+                <div className="pr-leg" key={i}>
+                  <span className={"pr-dot " + l.status} title={l.status} />
+                  <span className="pr-leg-team">{wcLabel(l.team) || "Leg"}</span>
+                  <span className={"badge " + l.side}>{l.side.toUpperCase()}</span>
+                  <span className="pr-leg-grp">{l.group}</span>
+                </div>
+              ))}
+            </div>
+            {detailErr && <div className="err pb-err">{detailErr}</div>}
+            <div className="actions">
+              <button className="btn" onClick={() => setDetailId(null)}>
+                Close
+              </button>
+              <button
+                className="confirm btn"
+                disabled={cashingOut}
+                onClick={() => cashOut(detailParlay.id)}
+              >
+                {cashingOut ? "Cashing out…" : `Cash out for ${money(detailParlay.value)}`}
               </button>
             </div>
           </div>

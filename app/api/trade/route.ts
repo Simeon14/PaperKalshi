@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchMarket } from "@/lib/kalshi/board";
-import { isResolved, isVoided } from "@/lib/kalshi/market";
+import { hasLiveBook, isResolved, isVoided, midIsFictional } from "@/lib/kalshi/market";
 import { computeFill, type Side, type Action } from "@/lib/broker";
 import { getAccountState } from "@/lib/account";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
@@ -65,6 +65,23 @@ export async function POST(req: NextRequest) {
     .eq("id", user.id)
     .single();
   const realistic = !!acct?.realistic;
+
+  // Dead-book guards for perfect-liquidity mode, which fills AT the mid. Buys: no opening
+  // exposure without a live two-sided book (a dead book's mid is fiction). Sells: blocked only
+  // when the mid is truly fictional (wide two-sided book); a one-sided book's mid falls back to
+  // the real remaining quote, and Realistic mode always exits honestly at the live bid.
+  if (!realistic && action === "buy" && !hasLiveBook(market)) {
+    return NextResponse.json(
+      { error: "this market has no live two-sided book right now" },
+      { status: 400 },
+    );
+  }
+  if (!realistic && action === "sell" && midIsFictional(market)) {
+    return NextResponse.json(
+      { error: "this market's book is too wide to exit at a mid price; switch on Realistic fills to sell at the live bid" },
+      { status: 400 },
+    );
+  }
 
   const applyTrade = (a: Action, s: Side, n: number, priceC: number, feeC: number) =>
     admin.rpc("apply_trade", {

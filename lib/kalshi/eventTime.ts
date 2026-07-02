@@ -17,7 +17,7 @@ export function fmtDate(s: string): string {
   const dte = new Date(s);
   if (Number.isNaN(dte.getTime())) return "";
   const now = new Date();
-  const o: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  const o: Intl.DateTimeFormatOptions = { weekday: "short", month: "long", day: "numeric" };
   if (dte.getFullYear() !== now.getFullYear()) o.year = "numeric";
   return dte.toLocaleDateString(undefined, o);
 }
@@ -53,9 +53,36 @@ export interface EventStart {
   label: string; // display string in the viewer's locale/timezone
 }
 
-// An event's start as a sortable timestamp + display label, from the ticker when it carries a
-// game date, else from close_time.
-export function eventStart(id: string, closeTime: string): EventStart {
+// Game times are shown in US Eastern with an "ET" suffix rather than the viewer's local zone:
+// the MLB ticker time and Kalshi's World Cup occurrence time are both Eastern-anchored, so a
+// single ET label keeps them unambiguous no matter where the viewer sits.
+const ET_TZ = "America/New_York";
+
+// The America/New_York calendar date of an instant, as "YYYY-MM-DD" (for a same-day check).
+function etDateKey(instant: number): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: ET_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(instant));
+}
+
+// A game instant rendered in Eastern time: "Today · 9:00 PM ET", else "Sat, July 4 · 9:00 PM ET".
+function etLabel(instant: number): string {
+  const d = new Date(instant);
+  const day =
+    etDateKey(instant) === etDateKey(Date.now())
+      ? "Today"
+      : d.toLocaleDateString(undefined, { timeZone: ET_TZ, weekday: "short", month: "long", day: "numeric" });
+  const time = d.toLocaleTimeString(undefined, { timeZone: ET_TZ, hour: "numeric", minute: "2-digit" });
+  return `${day} · ${time} ET`;
+}
+
+// An event's start as a sortable timestamp + display label. Game times come from the ticker (MLB,
+// which carries an Eastern HHMM) or from `startTime` (the World Cup occurrence datetime, since its
+// ticker is date-only), both shown in Eastern; non-game tickers fall back to close_time.
+export function eventStart(id: string, closeTime: string, startTime?: string): EventStart {
   const m = (id || "").match(EVENT_RE);
   if (m) {
     const year = 2000 + parseInt(m[1], 10);
@@ -64,16 +91,24 @@ export function eventStart(id: string, closeTime: string): EventStart {
     const hasTime = m[4] != null && m[5] != null;
     if (hasTime) {
       const ts = etToUtc(year, mon, dd, parseInt(m[4], 10), parseInt(m[5], 10));
-      const dt = new Date(ts);
-      const label =
-        dt.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
-        " · " +
-        dt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-      return { ts, label };
+      return { ts, label: etLabel(ts) };
     }
-    // Date-only tickers (World Cup): show the calendar date as written, no timezone shifting.
-    const monName = m[2][0] + m[2].slice(1).toLowerCase();
-    return { ts: Date.UTC(year, mon, dd), label: `${monName} ${dd}` };
+    // Date-only ticker (World Cup): use the scheduled game datetime when we have it, in Eastern.
+    const start = startTime ? Date.parse(startTime) : NaN;
+    if (!Number.isNaN(start)) return { ts: start, label: etLabel(start) };
+    // No start time: show the calendar date as written (no timezone shift, no time).
+    const ts = Date.UTC(year, mon, dd);
+    const written = `${year}-${String(mon + 1).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+    const label =
+      written === etDateKey(Date.now())
+        ? "Today"
+        : new Date(ts).toLocaleDateString(undefined, {
+            weekday: "short",
+            month: "long",
+            day: "numeric",
+            timeZone: "UTC",
+          });
+    return { ts, label };
   }
   const parsed = closeTime ? Date.parse(closeTime) : NaN;
   return {

@@ -19,6 +19,7 @@ function mkt(over: Partial<LiveMarket> = {}): LiveMarket {
     status: "active",
     result: "",
     close_time: "",
+    start_time: "",
     ...over,
   };
 }
