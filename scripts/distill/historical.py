@@ -128,6 +128,7 @@ def load_games(years: list[int]) -> list[dict]:
                 if not al or not hl:
                     continue
                 games.append({
+                    "date": g[0], "gamenum": g[1], "away": g[3], "home": g[6],  # join keys
                     "away_r": av, "home_r": hv,
                     "away_line": al, "home_line": hl,
                     "innings": len(al),               # away bats every inning => true inning count

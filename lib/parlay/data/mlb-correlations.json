@@ -1,7 +1,7 @@
 {
   "version": 1,
   "sport": "mlb",
-  "updated": "2026-07-02",
+  "updated": "2026-07-03",
   "entries": [
     {
       "a": "extras",
@@ -122,6 +122,86 @@
       "n": 1080000,
       "spread": 0.058,
       "notes": "runs-model MC, avg over moneyline x total grid"
+    },
+    {
+      "a": "extras",
+      "b": "p_hits",
+      "relation": "game",
+      "rho": 0.027,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0027,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "extras",
+      "b": "p_hr",
+      "relation": "game",
+      "rho": -0.0097,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "extras",
+      "b": "p_hrr",
+      "relation": "game",
+      "rho": 0.0141,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0059,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "extras",
+      "b": "p_ks",
+      "relation": "game",
+      "rho": 0.0396,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0129,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "extras",
+      "b": "p_outs",
+      "relation": "game",
+      "rho": 0.0799,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0028,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "extras",
+      "b": "p_rbi",
+      "relation": "game",
+      "rho": -0.0073,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0162,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "extras",
+      "b": "p_sb",
+      "relation": "game",
+      "rho": 0.0754,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "extras",
+      "b": "p_tb",
+      "relation": "game",
+      "rho": 0.0132,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0052,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "extras",
@@ -366,6 +446,16 @@
     {
       "a": "f3_ml",
       "b": "ml",
+      "relation": "game",
+      "rho": -0.0,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "ml",
       "relation": "opp_team",
       "rho": -0.5997,
       "source": "historical",
@@ -405,6 +495,166 @@
     },
     {
       "a": "f3_ml",
+      "b": "p_hits",
+      "relation": "player_opp",
+      "rho": -0.1144,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0071,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_hits",
+      "relation": "player_team",
+      "rho": 0.1839,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0078,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_hr",
+      "relation": "player_opp",
+      "rho": -0.1124,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_hr",
+      "relation": "player_team",
+      "rho": 0.1749,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_hrr",
+      "relation": "player_opp",
+      "rho": -0.1747,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0046,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_hrr",
+      "relation": "player_team",
+      "rho": 0.2742,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0034,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_ks",
+      "relation": "player_opp",
+      "rho": -0.2632,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0047,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_ks",
+      "relation": "player_team",
+      "rho": 0.1677,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0067,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_outs",
+      "relation": "player_opp",
+      "rho": -0.3758,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0145,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_outs",
+      "relation": "player_team",
+      "rho": 0.2285,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0153,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_rbi",
+      "relation": "player_opp",
+      "rho": -0.1635,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0057,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_rbi",
+      "relation": "player_team",
+      "rho": 0.248,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0044,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_sb",
+      "relation": "player_opp",
+      "rho": -0.1114,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_sb",
+      "relation": "player_team",
+      "rho": 0.1029,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_tb",
+      "relation": "player_opp",
+      "rho": -0.125,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0045,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
+      "b": "p_tb",
+      "relation": "player_team",
+      "rho": 0.197,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0054,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f3_ml",
       "b": "rfi",
       "relation": "game",
       "rho": 0.2079,
@@ -422,6 +672,16 @@
       "n": 1080000,
       "spread": 0.033,
       "notes": "runs-model MC, avg over moneyline x total grid"
+    },
+    {
+      "a": "f3_ml",
+      "b": "spread",
+      "relation": "game",
+      "rho": -0.0887,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
     },
     {
       "a": "f3_ml",
@@ -462,6 +722,16 @@
       "n": 1080000,
       "spread": 0.002,
       "notes": "runs-model MC, avg over moneyline x total grid"
+    },
+    {
+      "a": "f3_ml",
+      "b": "team_total",
+      "relation": "game",
+      "rho": -0.2376,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0017,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "f3_ml",
@@ -646,6 +916,16 @@
     {
       "a": "f5_ml",
       "b": "ml",
+      "relation": "game",
+      "rho": 0.0,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "ml",
       "relation": "opp_team",
       "rho": -0.7827,
       "source": "historical",
@@ -685,6 +965,166 @@
     },
     {
       "a": "f5_ml",
+      "b": "p_hits",
+      "relation": "player_opp",
+      "rho": -0.1764,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0063,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_hits",
+      "relation": "player_team",
+      "rho": 0.2161,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0066,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_hr",
+      "relation": "player_opp",
+      "rho": -0.168,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_hr",
+      "relation": "player_team",
+      "rho": 0.2044,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_hrr",
+      "relation": "player_opp",
+      "rho": -0.269,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0042,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_hrr",
+      "relation": "player_team",
+      "rho": 0.325,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0028,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_ks",
+      "relation": "player_opp",
+      "rho": -0.2995,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0003,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_ks",
+      "relation": "player_team",
+      "rho": 0.24,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_outs",
+      "relation": "player_opp",
+      "rho": -0.4523,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0199,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_outs",
+      "relation": "player_team",
+      "rho": 0.359,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0231,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_rbi",
+      "relation": "player_opp",
+      "rho": -0.2497,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0078,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_rbi",
+      "relation": "player_team",
+      "rho": 0.2959,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0082,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_sb",
+      "relation": "player_opp",
+      "rho": -0.1515,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_sb",
+      "relation": "player_team",
+      "rho": 0.1291,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_tb",
+      "relation": "player_opp",
+      "rho": -0.1904,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0054,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
+      "b": "p_tb",
+      "relation": "player_team",
+      "rho": 0.2317,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0054,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_ml",
       "b": "rfi",
       "relation": "game",
       "rho": 0.0714,
@@ -702,6 +1142,16 @@
       "n": 1080000,
       "spread": 0.024,
       "notes": "runs-model MC, avg over moneyline x total grid"
+    },
+    {
+      "a": "f5_ml",
+      "b": "spread",
+      "relation": "game",
+      "rho": -0.1613,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
     },
     {
       "a": "f5_ml",
@@ -742,6 +1192,16 @@
       "n": 1080000,
       "spread": 0.002,
       "notes": "runs-model MC, avg over moneyline x total grid"
+    },
+    {
+      "a": "f5_ml",
+      "b": "team_total",
+      "relation": "game",
+      "rho": -0.1984,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0097,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "f5_ml",
@@ -925,6 +1385,166 @@
     },
     {
       "a": "f5_spread",
+      "b": "p_hits",
+      "relation": "player_opp",
+      "rho": -0.1492,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0066,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_hits",
+      "relation": "player_team",
+      "rho": 0.2374,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0072,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_hr",
+      "relation": "player_opp",
+      "rho": -0.1427,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_hr",
+      "relation": "player_team",
+      "rho": 0.2146,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_hrr",
+      "relation": "player_opp",
+      "rho": -0.2316,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0044,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_hrr",
+      "relation": "player_team",
+      "rho": 0.3541,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0027,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_ks",
+      "relation": "player_opp",
+      "rho": -0.3387,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0012,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_ks",
+      "relation": "player_team",
+      "rho": 0.2085,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0044,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_outs",
+      "relation": "player_opp",
+      "rho": -0.5288,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.021,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_outs",
+      "relation": "player_team",
+      "rho": 0.3237,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0181,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_rbi",
+      "relation": "player_opp",
+      "rho": -0.2183,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0075,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_rbi",
+      "relation": "player_team",
+      "rho": 0.3199,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.012,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_sb",
+      "relation": "player_opp",
+      "rho": -0.172,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_sb",
+      "relation": "player_team",
+      "rho": 0.1107,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_tb",
+      "relation": "player_opp",
+      "rho": -0.1605,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0043,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
+      "b": "p_tb",
+      "relation": "player_team",
+      "rho": 0.2521,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0041,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_spread",
       "b": "rfi",
       "relation": "game",
       "rho": 0.1314,
@@ -1095,6 +1715,26 @@
     },
     {
       "a": "f5_total",
+      "b": "p_hits",
+      "relation": "game",
+      "rho": 0.1985,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0143,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_total",
+      "b": "p_hr",
+      "relation": "game",
+      "rho": 0.1924,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_total",
       "b": "p_hr",
       "relation": "game",
       "rho": 0.1,
@@ -1103,11 +1743,71 @@
     },
     {
       "a": "f5_total",
+      "b": "p_hrr",
+      "relation": "game",
+      "rho": 0.2934,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0071,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_total",
+      "b": "p_ks",
+      "relation": "game",
+      "rho": -0.2441,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0077,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "f5_total",
       "b": "p_ks",
       "relation": "game",
       "rho": -0.18,
       "source": "prior",
       "notes": "early strikeouts suppress first-5 runs"
+    },
+    {
+      "a": "f5_total",
+      "b": "p_outs",
+      "relation": "game",
+      "rho": -0.4513,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.023,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_total",
+      "b": "p_rbi",
+      "relation": "game",
+      "rho": 0.2743,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0181,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f5_total",
+      "b": "p_sb",
+      "relation": "game",
+      "rho": 0.0077,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_total",
+      "b": "p_tb",
+      "relation": "game",
+      "rho": 0.2146,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0062,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "f5_total",
@@ -1212,6 +1912,16 @@
     {
       "a": "f7_ml",
       "b": "ml",
+      "relation": "game",
+      "rho": -0.0,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "ml",
       "relation": "opp_team",
       "rho": -0.9226,
       "source": "historical",
@@ -1251,6 +1961,166 @@
     },
     {
       "a": "f7_ml",
+      "b": "p_hits",
+      "relation": "player_opp",
+      "rho": -0.214,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0086,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_hits",
+      "relation": "player_team",
+      "rho": 0.2297,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0071,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_hr",
+      "relation": "player_opp",
+      "rho": -0.2035,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_hr",
+      "relation": "player_team",
+      "rho": 0.2163,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_hrr",
+      "relation": "player_opp",
+      "rho": -0.3291,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0045,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_hrr",
+      "relation": "player_team",
+      "rho": 0.3527,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0042,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_ks",
+      "relation": "player_opp",
+      "rho": -0.2873,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0011,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_ks",
+      "relation": "player_team",
+      "rho": 0.2554,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0043,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_outs",
+      "relation": "player_opp",
+      "rho": -0.4327,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0093,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_outs",
+      "relation": "player_team",
+      "rho": 0.3837,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.003,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_rbi",
+      "relation": "player_opp",
+      "rho": -0.3063,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0104,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_rbi",
+      "relation": "player_team",
+      "rho": 0.3244,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0114,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_sb",
+      "relation": "player_opp",
+      "rho": -0.1677,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_sb",
+      "relation": "player_team",
+      "rho": 0.1438,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_tb",
+      "relation": "player_opp",
+      "rho": -0.2298,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0057,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
+      "b": "p_tb",
+      "relation": "player_team",
+      "rho": 0.2465,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.006,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "f7_ml",
       "b": "rfi",
       "relation": "game",
       "rho": 0.0289,
@@ -1268,6 +2138,16 @@
       "n": 1080000,
       "spread": 0.017,
       "notes": "runs-model MC, avg over moneyline x total grid"
+    },
+    {
+      "a": "f7_ml",
+      "b": "spread",
+      "relation": "game",
+      "rho": -0.2758,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
     },
     {
       "a": "f7_ml",
@@ -1308,6 +2188,16 @@
       "n": 1080000,
       "spread": 0.002,
       "notes": "runs-model MC, avg over moneyline x total grid"
+    },
+    {
+      "a": "f7_ml",
+      "b": "team_total",
+      "relation": "game",
+      "rho": -0.1088,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.021,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "f7_ml",
@@ -1393,9 +2283,29 @@
       "a": "ml",
       "b": "p_hits",
       "relation": "player_opp",
+      "rho": -0.239,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0102,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "ml",
+      "b": "p_hits",
+      "relation": "player_opp",
       "rho": -0.08,
       "source": "prior",
       "notes": "on-base slightly hurts the opponent's ML"
+    },
+    {
+      "a": "ml",
+      "b": "p_hits",
+      "relation": "player_team",
+      "rho": 0.239,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0102,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "ml",
@@ -1409,9 +2319,29 @@
       "a": "ml",
       "b": "p_hr",
       "relation": "player_opp",
+      "rho": -0.2294,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "ml",
+      "b": "p_hr",
+      "relation": "player_opp",
       "rho": -0.12,
       "source": "prior",
       "notes": "his HR helps his team, hurts the opponent's ML"
+    },
+    {
+      "a": "ml",
+      "b": "p_hr",
+      "relation": "player_team",
+      "rho": 0.2294,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
     },
     {
       "a": "ml",
@@ -1425,9 +2355,29 @@
       "a": "ml",
       "b": "p_hrr",
       "relation": "player_opp",
+      "rho": -0.3699,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0065,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "ml",
+      "b": "p_hrr",
+      "relation": "player_opp",
       "rho": -0.1,
       "source": "prior",
       "notes": "his production hurts the opponent's ML"
+    },
+    {
+      "a": "ml",
+      "b": "p_hrr",
+      "relation": "player_team",
+      "rho": 0.3699,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0065,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "ml",
@@ -1441,9 +2391,29 @@
       "a": "ml",
       "b": "p_ks",
       "relation": "player_opp",
+      "rho": -0.2437,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0042,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "ml",
+      "b": "p_ks",
+      "relation": "player_opp",
       "rho": -0.2,
       "source": "prior",
       "notes": "dominant pitcher -> opponent less likely to win"
+    },
+    {
+      "a": "ml",
+      "b": "p_ks",
+      "relation": "player_team",
+      "rho": 0.2437,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0042,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
     },
     {
       "a": "ml",
@@ -1457,9 +2427,29 @@
       "a": "ml",
       "b": "p_outs",
       "relation": "player_opp",
+      "rho": -0.3769,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0045,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "ml",
+      "b": "p_outs",
+      "relation": "player_opp",
       "rho": -0.15,
       "source": "prior",
       "notes": "pitcher going deep -> opponent less likely to win"
+    },
+    {
+      "a": "ml",
+      "b": "p_outs",
+      "relation": "player_team",
+      "rho": 0.3769,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0045,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "ml",
@@ -1473,9 +2463,29 @@
       "a": "ml",
       "b": "p_rbi",
       "relation": "player_opp",
+      "rho": -0.3497,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0154,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "ml",
+      "b": "p_rbi",
+      "relation": "player_opp",
       "rho": -0.12,
       "source": "prior",
       "notes": "his RBIs hurt the opponent's ML"
+    },
+    {
+      "a": "ml",
+      "b": "p_rbi",
+      "relation": "player_team",
+      "rho": 0.3497,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0154,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "ml",
@@ -1487,11 +2497,51 @@
     },
     {
       "a": "ml",
+      "b": "p_sb",
+      "relation": "player_opp",
+      "rho": -0.1551,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "ml",
+      "b": "p_sb",
+      "relation": "player_team",
+      "rho": 0.1551,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "ml",
+      "b": "p_tb",
+      "relation": "player_opp",
+      "rho": -0.2572,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0079,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "ml",
       "b": "p_tb",
       "relation": "player_opp",
       "rho": -0.1,
       "source": "prior",
       "notes": "his bases slightly hurt the opponent's ML"
+    },
+    {
+      "a": "ml",
+      "b": "p_tb",
+      "relation": "player_team",
+      "rho": 0.2572,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0079,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "ml",
@@ -1624,6 +2674,26 @@
     {
       "a": "p_hits",
       "b": "p_hits",
+      "relation": "player_player_opp",
+      "rho": 0.0092,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0017,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_hits",
+      "relation": "player_player_same_team",
+      "rho": 0.0826,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0084,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_hits",
       "relation": "player_player_same_team",
       "rho": 0.1,
       "source": "prior",
@@ -1640,10 +2710,70 @@
     {
       "a": "p_hits",
       "b": "p_hr",
+      "relation": "player_player_opp",
+      "rho": 0.0033,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0022,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_hr",
+      "relation": "player_player_same_team",
+      "rho": 0.0412,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.004,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_hr",
+      "relation": "same_player",
+      "rho": 0.4938,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_hr",
       "relation": "same_player",
       "rho": 0.3,
       "source": "prior",
       "notes": "a HR is also a hit"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_hrr",
+      "relation": "player_player_opp",
+      "rho": 0.0063,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0017,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_hrr",
+      "relation": "player_player_same_team",
+      "rho": 0.1263,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0097,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_hrr",
+      "relation": "same_player",
+      "rho": 0.9322,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0153,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
     },
     {
       "a": "p_hits",
@@ -1657,9 +2787,39 @@
       "a": "p_hits",
       "b": "p_ks",
       "relation": "player_player_opp",
+      "rho": -0.1499,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0048,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_ks",
+      "relation": "player_player_opp",
       "rho": -0.2,
       "source": "prior",
       "notes": "pitcher Ks vs opposing batter hits"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_ks",
+      "relation": "player_player_same_team",
+      "rho": 0.0057,
+      "source": "historical",
+      "n": 197402,
+      "spread": 0.0066,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 12 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_outs",
+      "relation": "player_player_opp",
+      "rho": -0.2056,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0131,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
     },
     {
       "a": "p_hits",
@@ -1668,6 +2828,36 @@
       "rho": -0.1,
       "source": "prior",
       "notes": "pitcher going deep vs opposing hits"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_outs",
+      "relation": "player_player_same_team",
+      "rho": 0.0067,
+      "source": "historical",
+      "n": 197402,
+      "spread": 0.0054,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_rbi",
+      "relation": "player_player_opp",
+      "rho": 0.0037,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0016,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_rbi",
+      "relation": "player_player_same_team",
+      "rho": 0.1123,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0087,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
     },
     {
       "a": "p_hits",
@@ -1681,9 +2871,49 @@
       "a": "p_hits",
       "b": "p_rbi",
       "relation": "same_player",
+      "rho": 0.6425,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0691,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_rbi",
+      "relation": "same_player",
       "rho": 0.35,
       "source": "prior",
       "notes": "reaching base drives RBI chances"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_sb",
+      "relation": "player_player_opp",
+      "rho": -0.0251,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0029,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_sb",
+      "relation": "player_player_same_team",
+      "rho": 0.018,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0024,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_sb",
+      "relation": "same_player",
+      "rho": 0.2672,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0166,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "p_hits",
@@ -1696,10 +2926,90 @@
     {
       "a": "p_hits",
       "b": "p_tb",
+      "relation": "player_player_opp",
+      "rho": 0.0075,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0017,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_tb",
+      "relation": "player_player_same_team",
+      "rho": 0.0735,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0079,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_tb",
+      "relation": "same_player",
+      "rho": 0.9784,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0139,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "p_tb",
       "relation": "same_player",
       "rho": 0.55,
       "source": "prior",
       "notes": "more hits -> more total bases"
+    },
+    {
+      "a": "p_hits",
+      "b": "rfi",
+      "relation": "game",
+      "rho": 0.0959,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0084,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "spread",
+      "relation": "player_opp",
+      "rho": -0.215,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0113,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "spread",
+      "relation": "player_team",
+      "rho": 0.255,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0109,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "team_total",
+      "relation": "player_opp",
+      "rho": 0.0092,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0038,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "team_total",
+      "relation": "player_team",
+      "rho": 0.3439,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0186,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
     },
     {
       "a": "p_hits",
@@ -1713,9 +3023,39 @@
       "a": "p_hits",
       "b": "total",
       "relation": "game",
+      "rho": 0.2484,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0205,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_hits",
+      "b": "total",
+      "relation": "game",
       "rho": 0.15,
       "source": "prior",
       "notes": "more baserunners -> more scoring"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_hr",
+      "relation": "player_player_opp",
+      "rho": 0.0118,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_hr",
+      "relation": "player_player_same_team",
+      "rho": 0.0386,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0003,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "p_hr",
@@ -1736,10 +3076,40 @@
     {
       "a": "p_hr",
       "b": "p_hrr",
+      "relation": "player_player_opp",
+      "rho": 0.0037,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0014,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_hrr",
+      "relation": "player_player_same_team",
+      "rho": 0.063,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0045,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_hrr",
       "relation": "same_player",
       "rho": 0.55,
       "source": "prior",
       "notes": "HR feeds H+R+RBI"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_ks",
+      "relation": "player_player_opp",
+      "rho": -0.0856,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0002,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
     },
     {
       "a": "p_hr",
@@ -1751,11 +3121,121 @@
     },
     {
       "a": "p_hr",
+      "b": "p_ks",
+      "relation": "player_player_same_team",
+      "rho": 0.0121,
+      "source": "historical",
+      "n": 197402,
+      "spread": 0.0016,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_outs",
+      "relation": "player_player_opp",
+      "rho": -0.1582,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0048,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_outs",
+      "relation": "player_player_same_team",
+      "rho": 0.0024,
+      "source": "historical",
+      "n": 197402,
+      "spread": 0.0005,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_rbi",
+      "relation": "player_player_opp",
+      "rho": 0.0043,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0019,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_rbi",
+      "relation": "player_player_same_team",
+      "rho": 0.0282,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0036,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_rbi",
+      "relation": "same_player",
+      "rho": 0.8043,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
       "b": "p_rbi",
       "relation": "same_player",
       "rho": 0.45,
       "source": "prior",
       "notes": "HRs generate RBIs"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_sb",
+      "relation": "player_player_opp",
+      "rho": -0.0222,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_sb",
+      "relation": "player_player_same_team",
+      "rho": 0.015,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0009,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_sb",
+      "relation": "same_player",
+      "rho": -0.0702,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_tb",
+      "relation": "player_player_opp",
+      "rho": 0.0063,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0014,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "p_tb",
+      "relation": "player_player_same_team",
+      "rho": 0.0443,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0037,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
     },
     {
       "a": "p_hr",
@@ -1769,9 +3249,59 @@
       "a": "p_hr",
       "b": "rfi",
       "relation": "game",
+      "rho": 0.0997,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "rfi",
+      "relation": "game",
       "rho": 0.05,
       "source": "prior",
       "notes": "a HR bat vs a run in the 1st"
+    },
+    {
+      "a": "p_hr",
+      "b": "spread",
+      "relation": "player_opp",
+      "rho": -0.2106,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "spread",
+      "relation": "player_team",
+      "rho": 0.2367,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "team_total",
+      "relation": "player_opp",
+      "rho": 0.008,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0012,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "team_total",
+      "relation": "player_team",
+      "rho": 0.3337,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0095,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "p_hr",
@@ -1785,9 +3315,39 @@
       "a": "p_hr",
       "b": "total",
       "relation": "game",
+      "rho": 0.2374,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0056,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "p_hr",
+      "b": "total",
+      "relation": "game",
       "rho": 0.15,
       "source": "prior",
       "notes": "HRs push the total over"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_hrr",
+      "relation": "player_player_opp",
+      "rho": 0.0033,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0004,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_hrr",
+      "relation": "player_player_same_team",
+      "rho": 0.1911,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0108,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
     },
     {
       "a": "p_hrr",
@@ -1807,6 +3367,76 @@
     },
     {
       "a": "p_hrr",
+      "b": "p_ks",
+      "relation": "player_player_opp",
+      "rho": -0.1892,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0013,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_ks",
+      "relation": "player_player_same_team",
+      "rho": 0.0127,
+      "source": "historical",
+      "n": 197402,
+      "spread": 0.0058,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 12 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_outs",
+      "relation": "player_player_opp",
+      "rho": -0.2911,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0075,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_outs",
+      "relation": "player_player_same_team",
+      "rho": 0.0057,
+      "source": "historical",
+      "n": 197402,
+      "spread": 0.0008,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_rbi",
+      "relation": "player_player_opp",
+      "rho": 0.0013,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0007,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_rbi",
+      "relation": "player_player_same_team",
+      "rho": 0.1647,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0082,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_rbi",
+      "relation": "same_player",
+      "rho": 0.8872,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0052,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
       "b": "p_rbi",
       "relation": "same_player",
       "rho": 0.7,
@@ -1815,11 +3445,121 @@
     },
     {
       "a": "p_hrr",
+      "b": "p_sb",
+      "relation": "player_player_opp",
+      "rho": -0.0373,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0024,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_sb",
+      "relation": "player_player_same_team",
+      "rho": 0.0431,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0029,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_sb",
+      "relation": "same_player",
+      "rho": 0.2404,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0314,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_tb",
+      "relation": "player_player_opp",
+      "rho": 0.0057,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0006,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_tb",
+      "relation": "player_player_same_team",
+      "rho": 0.1162,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0101,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "p_tb",
+      "relation": "same_player",
+      "rho": 0.9281,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0092,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
       "b": "p_tb",
       "relation": "same_player",
       "rho": 0.7,
       "source": "prior",
       "notes": "shared offensive production"
+    },
+    {
+      "a": "p_hrr",
+      "b": "rfi",
+      "relation": "game",
+      "rho": 0.1356,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0047,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "spread",
+      "relation": "player_opp",
+      "rho": -0.3369,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0079,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "spread",
+      "relation": "player_team",
+      "rho": 0.3886,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0071,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "team_total",
+      "relation": "player_opp",
+      "rho": 0.0039,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0012,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "team_total",
+      "relation": "player_team",
+      "rho": 0.5172,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0124,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
     },
     {
       "a": "p_hrr",
@@ -1833,9 +3573,29 @@
       "a": "p_hrr",
       "b": "total",
       "relation": "game",
+      "rho": 0.3664,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0116,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_hrr",
+      "b": "total",
+      "relation": "game",
       "rho": 0.22,
       "source": "prior",
       "notes": "offense that scores runs pushes the game total over"
+    },
+    {
+      "a": "p_ks",
+      "b": "p_ks",
+      "relation": "player_player_opp",
+      "rho": -0.0006,
+      "source": "historical",
+      "n": 45526,
+      "spread": 0.0018,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 9 line-grid point(s)"
     },
     {
       "a": "p_ks",
@@ -1848,10 +3608,80 @@
     {
       "a": "p_ks",
       "b": "p_outs",
+      "relation": "player_player_opp",
+      "rho": 0.0074,
+      "source": "historical",
+      "n": 45526,
+      "spread": 0.0018,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_ks",
+      "b": "p_outs",
+      "relation": "same_player",
+      "rho": 0.5016,
+      "source": "historical",
+      "n": 45526,
+      "spread": 0.0027,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_ks",
+      "b": "p_outs",
       "relation": "same_player",
       "rho": 0.55,
       "source": "prior",
       "notes": "a strikeout is an out; deeper start -> more Ks"
+    },
+    {
+      "a": "p_ks",
+      "b": "p_rbi",
+      "relation": "player_player_opp",
+      "rho": -0.1624,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.001,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_ks",
+      "b": "p_rbi",
+      "relation": "player_player_same_team",
+      "rho": 0.0126,
+      "source": "historical",
+      "n": 197402,
+      "spread": 0.0027,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 12 line-grid point(s)"
+    },
+    {
+      "a": "p_ks",
+      "b": "p_sb",
+      "relation": "player_player_opp",
+      "rho": -0.0297,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0042,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "p_ks",
+      "b": "p_sb",
+      "relation": "player_player_same_team",
+      "rho": 0.0185,
+      "source": "historical",
+      "n": 197402,
+      "spread": 0.0029,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_ks",
+      "b": "p_tb",
+      "relation": "player_player_opp",
+      "rho": -0.1326,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0024,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
     },
     {
       "a": "p_ks",
@@ -1863,6 +3693,26 @@
     },
     {
       "a": "p_ks",
+      "b": "p_tb",
+      "relation": "player_player_same_team",
+      "rho": 0.0088,
+      "source": "historical",
+      "n": 197402,
+      "spread": 0.0038,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 12 line-grid point(s)"
+    },
+    {
+      "a": "p_ks",
+      "b": "rfi",
+      "relation": "game",
+      "rho": -0.1041,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0074,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "p_ks",
       "b": "rfi",
       "relation": "game",
       "rho": -0.08,
@@ -1871,11 +3721,61 @@
     },
     {
       "a": "p_ks",
+      "b": "spread",
+      "relation": "player_opp",
+      "rho": -0.268,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0011,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "p_ks",
+      "b": "spread",
+      "relation": "player_team",
+      "rho": 0.2169,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0015,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "p_ks",
+      "b": "team_total",
+      "relation": "player_opp",
+      "rho": -0.3291,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0045,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_ks",
       "b": "team_total",
       "relation": "player_opp",
       "rho": -0.35,
       "source": "prior",
       "notes": "pitcher Ks suppress the opposing team's runs"
+    },
+    {
+      "a": "p_ks",
+      "b": "team_total",
+      "relation": "player_team",
+      "rho": 0.02,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0002,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_ks",
+      "b": "total",
+      "relation": "game",
+      "rho": -0.2184,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0037,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 9 line-grid point(s)"
     },
     {
       "a": "p_ks",
@@ -1888,10 +3788,120 @@
     {
       "a": "p_outs",
       "b": "p_outs",
+      "relation": "player_player_opp",
+      "rho": 0.122,
+      "source": "historical",
+      "n": 45526,
+      "spread": 0.0017,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_outs",
+      "b": "p_outs",
       "relation": "same_player",
       "rho": 0.75,
       "source": "prior",
       "notes": "nested lines on the same prop"
+    },
+    {
+      "a": "p_outs",
+      "b": "p_rbi",
+      "relation": "player_player_opp",
+      "rho": -0.2668,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0128,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_outs",
+      "b": "p_rbi",
+      "relation": "player_player_same_team",
+      "rho": 0.0038,
+      "source": "historical",
+      "n": 197402,
+      "spread": 0.0014,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
+    },
+    {
+      "a": "p_outs",
+      "b": "p_sb",
+      "relation": "player_player_opp",
+      "rho": -0.1121,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.004,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_outs",
+      "b": "p_sb",
+      "relation": "player_player_same_team",
+      "rho": 0.0374,
+      "source": "historical",
+      "n": 197402,
+      "spread": 0.0005,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_outs",
+      "b": "p_tb",
+      "relation": "player_player_opp",
+      "rho": -0.2039,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.006,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_outs",
+      "b": "p_tb",
+      "relation": "player_player_same_team",
+      "rho": 0.0046,
+      "source": "historical",
+      "n": 197402,
+      "spread": 0.0041,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
+    },
+    {
+      "a": "p_outs",
+      "b": "rfi",
+      "relation": "game",
+      "rho": -0.1922,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0088,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_outs",
+      "b": "spread",
+      "relation": "player_opp",
+      "rho": -0.4126,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0063,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_outs",
+      "b": "spread",
+      "relation": "player_team",
+      "rho": 0.3334,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0063,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_outs",
+      "b": "team_total",
+      "relation": "player_opp",
+      "rho": -0.5506,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0125,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
     },
     {
       "a": "p_outs",
@@ -1903,11 +3913,51 @@
     },
     {
       "a": "p_outs",
+      "b": "team_total",
+      "relation": "player_team",
+      "rho": -0.003,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0006,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_outs",
+      "b": "total",
+      "relation": "game",
+      "rho": -0.3872,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0036,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_outs",
       "b": "total",
       "relation": "game",
       "rho": -0.12,
       "source": "prior",
       "notes": "deeper starts suppress scoring"
+    },
+    {
+      "a": "p_rbi",
+      "b": "p_rbi",
+      "relation": "player_player_opp",
+      "rho": 0.0,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0007,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_rbi",
+      "b": "p_rbi",
+      "relation": "player_player_same_team",
+      "rho": 0.0837,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0079,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
     },
     {
       "a": "p_rbi",
@@ -1927,11 +3977,121 @@
     },
     {
       "a": "p_rbi",
+      "b": "p_sb",
+      "relation": "player_player_opp",
+      "rho": -0.0365,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0049,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_rbi",
+      "b": "p_sb",
+      "relation": "player_player_same_team",
+      "rho": 0.0525,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0035,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_rbi",
+      "b": "p_sb",
+      "relation": "same_player",
+      "rho": 0.0469,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0184,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_rbi",
+      "b": "p_tb",
+      "relation": "player_player_opp",
+      "rho": 0.0039,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0009,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_rbi",
+      "b": "p_tb",
+      "relation": "player_player_same_team",
+      "rho": 0.0955,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0096,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
+    },
+    {
+      "a": "p_rbi",
+      "b": "p_tb",
+      "relation": "same_player",
+      "rho": 0.7743,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0166,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_rbi",
       "b": "p_tb",
       "relation": "same_player",
       "rho": 0.5,
       "source": "prior",
       "notes": "extra-base hits drive both"
+    },
+    {
+      "a": "p_rbi",
+      "b": "rfi",
+      "relation": "game",
+      "rho": 0.1229,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0008,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_rbi",
+      "b": "spread",
+      "relation": "player_opp",
+      "rho": -0.3222,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0164,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_rbi",
+      "b": "spread",
+      "relation": "player_team",
+      "rho": 0.3604,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.019,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_rbi",
+      "b": "team_total",
+      "relation": "player_opp",
+      "rho": 0.0008,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0013,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_rbi",
+      "b": "team_total",
+      "relation": "player_team",
+      "rho": 0.4916,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0314,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
     },
     {
       "a": "p_rbi",
@@ -1945,9 +4105,39 @@
       "a": "p_rbi",
       "b": "total",
       "relation": "game",
+      "rho": 0.3453,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0248,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
+    },
+    {
+      "a": "p_rbi",
+      "b": "total",
+      "relation": "game",
       "rho": 0.2,
       "source": "prior",
       "notes": "RBIs are runs -> total over"
+    },
+    {
+      "a": "p_sb",
+      "b": "p_sb",
+      "relation": "player_player_opp",
+      "rho": -0.0062,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "p_sb",
+      "b": "p_sb",
+      "relation": "player_player_same_team",
+      "rho": 0.1126,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.006,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "p_sb",
@@ -1956,6 +4146,116 @@
       "rho": 0.6,
       "source": "prior",
       "notes": "nested lines on the same prop"
+    },
+    {
+      "a": "p_sb",
+      "b": "p_tb",
+      "relation": "player_player_opp",
+      "rho": -0.0265,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0013,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_sb",
+      "b": "p_tb",
+      "relation": "player_player_same_team",
+      "rho": 0.0195,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0037,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_sb",
+      "b": "p_tb",
+      "relation": "same_player",
+      "rho": 0.1123,
+      "source": "historical",
+      "n": 394745,
+      "spread": 0.0349,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_sb",
+      "b": "rfi",
+      "relation": "game",
+      "rho": 0.021,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "p_sb",
+      "b": "spread",
+      "relation": "player_opp",
+      "rho": -0.1816,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "p_sb",
+      "b": "spread",
+      "relation": "player_team",
+      "rho": 0.1325,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "p_sb",
+      "b": "team_total",
+      "relation": "player_opp",
+      "rho": -0.0688,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0055,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_sb",
+      "b": "team_total",
+      "relation": "player_team",
+      "rho": 0.1361,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0037,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_sb",
+      "b": "total",
+      "relation": "game",
+      "rho": 0.0308,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0001,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "p_tb",
+      "b": "p_tb",
+      "relation": "player_player_opp",
+      "rho": 0.0077,
+      "source": "historical",
+      "n": 3432608,
+      "spread": 0.0001,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_tb",
+      "b": "p_tb",
+      "relation": "player_player_same_team",
+      "rho": 0.0691,
+      "source": "historical",
+      "n": 1519958,
+      "spread": 0.0079,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 8 line-grid point(s)"
     },
     {
       "a": "p_tb",
@@ -1975,11 +4275,71 @@
     },
     {
       "a": "p_tb",
+      "b": "rfi",
+      "relation": "game",
+      "rho": 0.1065,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0038,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_tb",
+      "b": "spread",
+      "relation": "player_opp",
+      "rho": -0.2349,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0083,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_tb",
+      "b": "spread",
+      "relation": "player_team",
+      "rho": 0.2721,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0061,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
+    },
+    {
+      "a": "p_tb",
+      "b": "team_total",
+      "relation": "player_opp",
+      "rho": 0.0092,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0005,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_tb",
+      "b": "team_total",
+      "relation": "player_team",
+      "rho": 0.3675,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0108,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "p_tb",
       "b": "team_total",
       "relation": "player_team",
       "rho": 0.3,
       "source": "prior",
       "notes": "his bases help team score"
+    },
+    {
+      "a": "p_tb",
+      "b": "total",
+      "relation": "game",
+      "rho": 0.2653,
+      "source": "historical",
+      "n": 394729,
+      "spread": 0.0096,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 6 line-grid point(s)"
     },
     {
       "a": "p_tb",

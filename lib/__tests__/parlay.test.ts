@@ -435,9 +435,12 @@ describe("Fix B: quote/settlement consistency", () => {
     }
   });
 
-  it("voiding the implier reprices to the surviving statistical pair (not min, not product)", () => {
+  it("voiding the implier reprices to the surviving statistical pair (bucket path, ~min for Hit+TB)", () => {
     // HR voids; Hit + TB survive and win. The reprice must equal a direct priceFrozenSubset over
-    // {Hit, TB}: the same_player bucket path (rho ~0.55), so the expectation cannot drift.
+    // {Hit, TB} via the same_player bucket, so quote and settlement cannot drift. With the plan-07
+    // measured historical value (p_hits/p_tb same_player rho ~0.98, near-comonotone: TB 2+ nearly
+    // implies Hit 1+, a pair logic.ts deliberately does NOT collapse) the pair prices at ~min-of-
+    // marginals, not the strictly-below-min the old +0.55 prior gave.
     const direct = priceFrozenSubset(
       [
         { ticker: HIT, side: "yes" },
@@ -449,7 +452,7 @@ describe("Fix B: quote/settlement consistency", () => {
       q.seed,
     );
     expect(direct.q).toBeGreaterThan(0.9 * 0.35); // above the product
-    expect(direct.q).toBeLessThan(0.35); // below min-of-marginals
+    expect(direct.q).toBeLessThanOrEqual(0.35 + 1e-9); // at or below min-of-marginals
     const settled = assessParlay(
       chainRow(),
       new Map<string, LiveMarket>([
