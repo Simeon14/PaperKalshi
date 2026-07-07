@@ -97,6 +97,18 @@ describe("validateTable", () => {
     expect(table.entries.some((x) => x.source === "structural")).toBe(true);
     expect(table.entries.some((x) => x.source === "prior")).toBe(true);
   });
+  it("Plan 09: loads the f{3,5,7}_tie buckets and finds a negative tie-vs-total game bucket", () => {
+    const table = defaultTable(); // throws unless f{3,5,7}_tie were added to LEG_TYPES
+    const tieGame = table.entries.filter(
+      (x) => (x.a === "f5_tie" || x.b === "f5_tie") && x.relation === "game",
+    );
+    expect(tieGame.length).toBeGreaterThan(0);
+    const totBucket = table.entries.find(
+      (x) => x.a === "f5_tie" && x.b === "total" && x.relation === "game",
+    );
+    expect(totBucket).toBeDefined();
+    expect(totBucket!.rho).toBeLessThan(0); // ties cluster in low-scoring games
+  });
   it("rejects malformed entries", () => {
     expect(() => validateTable({ version: 1, sport: "mlb", updated: "x", entries: [{ a: "ml", b: "total", relation: "game", rho: 2, source: "prior" }] })).toThrow();
     expect(() => validateTable({ version: 1, sport: "mlb", updated: "x", entries: [{ a: "total", b: "ml", relation: "game", rho: 0.1, source: "prior" }] })).toThrow(); // a > b

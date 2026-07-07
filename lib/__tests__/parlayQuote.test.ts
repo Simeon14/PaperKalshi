@@ -93,6 +93,35 @@ describe("quoteParlay behaviour", () => {
   });
 });
 
+// Plan 09: a "tied after 5" + "total over" parlay must now price with the NEGATIVE tie-vs-total
+// correlation (ties cluster in low-scoring games) instead of the positive real-team (f5_ml, total)
+// bucket the tie used to collide with. Uses fixed synthetic marginals so the copula is exact (n=2)
+// and the test is deterministic; asserts direction, not an exact cent.
+describe("quoteParlay: tie-after-5 + total-over prices below independence (Plan 09)", () => {
+  const f5tie = classifyLeg(`KXMLBF5-${GAME}-TIE`, "yes");
+  const totalOver = classifyLeg(`KXMLBTOTAL-${GAME}-8`, "yes"); // over 7.5
+  const marg = [0.25, 0.5];
+
+  it("against the real bundled table, fair_q is below the independence product", () => {
+    const r = quoteParlay([f5tie, totalOver], marg); // defaultTable(): (f5_tie, total, game) < 0
+    expect(r.independent_q).toBeCloseTo(0.125, 9);
+    expect(r.fair_q).toBeLessThan(r.independent_q); // negative correlation -> joint below product
+  });
+
+  it("strictly below the pre-change price that used the positive real-team (f5_ml, total) bucket", () => {
+    // Before the split, the TIE classified as a teamRef-less f5_ml and consulted the real-team
+    // (f5_ml, total, game) POSITIVE bucket (+0.0835), pricing ABOVE independence. Reproduce that
+    // by keying the same positive rho on the tie type and confirm the new price moved down.
+    const oldTable = tableOf([
+      { a: "f5_tie", b: "total", relation: "game", rho: 0.0835, source: "historical", n: 45524 },
+    ]);
+    const oldPrice = quoteParlay([f5tie, totalOver], marg, { table: oldTable });
+    expect(oldPrice.fair_q).toBeGreaterThan(0.125); // the old positive bucket priced above independence
+    const now = quoteParlay([f5tie, totalOver], marg); // real table, negative bucket
+    expect(now.fair_q).toBeLessThan(oldPrice.fair_q); // moved in the correct (cheaper joint) direction
+  });
+});
+
 describe("quoteParlay golden (stable across refactors)", () => {
   const table = tableOf([
     { a: "ml", b: "spread", relation: "same_team", rho: 0.7, source: "structural" },

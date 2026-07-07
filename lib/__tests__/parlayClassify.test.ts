@@ -90,6 +90,30 @@ describe("classifyLeg game-scoped", () => {
   });
 });
 
+// Plan 09: the F3/F5/F7 TIE outcome gets its own team-agnostic leg type so it stops sharing a
+// correlation-bucket key with real-team f_ml legs.
+describe("classifyLeg f{3,5,7}_tie (the tied-after-N outcome)", () => {
+  it("the F5 TIE outcome is f5_tie: team-agnostic, no line, direction tie, canonical yes", () => {
+    const c = classifyLeg("KXMLBF5-26JUL050710NYYBOS-TIE", "yes");
+    expect(c.type).toBe("f5_tie");
+    expect(c.teamRef).toBeUndefined();
+    expect(c.line).toBeUndefined();
+    expect(c.direction).toBe("tie");
+    expect(c.canonical).toBe(true);
+  });
+  it("a real-team F5 leg in the same game still classifies f5_ml with a teamRef", () => {
+    const c = classifyLeg("KXMLBF5-26JUL050710NYYBOS-NYY", "yes");
+    expect(c.type).toBe("f5_ml");
+    expect(c.teamRef).toBe("NYY");
+  });
+  it("F3 and F7 TIE outcomes get their own types too", () => {
+    expect(classifyLeg(`KXMLBF3-${GAME}-TIE`, "yes").type).toBe("f3_tie");
+    expect(classifyLeg(`KXMLBF7-${GAME}-TIE`, "yes").type).toBe("f7_tie");
+    // a NO bet on a tie flips canonical, like every other leg.
+    expect(classifyLeg(`KXMLBF5-${GAME}-TIE`, "no").canonical).toBe(false);
+  });
+});
+
 describe("classifyLeg player-scoped", () => {
   it("p_hits with player and team", () => {
     const c = classifyLeg(`KXMLBHIT-${GAME}-SDFTATIS23-1`, "yes");

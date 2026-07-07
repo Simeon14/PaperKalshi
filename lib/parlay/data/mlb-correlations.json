@@ -1,7 +1,7 @@
 {
   "version": 1,
   "sport": "mlb",
-  "updated": "2026-07-03",
+  "updated": "2026-07-06",
   "entries": [
     {
       "a": "extras",
@@ -22,6 +22,16 @@
       "n": 1080000,
       "spread": 0.067,
       "notes": "runs-model MC, avg over moneyline x total grid"
+    },
+    {
+      "a": "extras",
+      "b": "f3_tie",
+      "relation": "game",
+      "rho": 0.1811,
+      "source": "historical",
+      "n": 22762,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
     },
     {
       "a": "extras",
@@ -65,6 +75,16 @@
     },
     {
       "a": "extras",
+      "b": "f5_tie",
+      "relation": "game",
+      "rho": 0.3207,
+      "source": "historical",
+      "n": 22762,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "extras",
       "b": "f5_total",
       "relation": "game",
       "rho": -0.2273,
@@ -102,6 +122,16 @@
       "n": 1080000,
       "spread": 0.097,
       "notes": "runs-model MC, avg over moneyline x total grid"
+    },
+    {
+      "a": "extras",
+      "b": "f7_tie",
+      "relation": "game",
+      "rho": 0.6234,
+      "source": "historical",
+      "n": 22762,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
     },
     {
       "a": "extras",
@@ -446,16 +476,6 @@
     {
       "a": "f3_ml",
       "b": "ml",
-      "relation": "game",
-      "rho": -0.0,
-      "source": "historical",
-      "n": 45524,
-      "spread": 0.0,
-      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
-    },
-    {
-      "a": "f3_ml",
-      "b": "ml",
       "relation": "opp_team",
       "rho": -0.5997,
       "source": "historical",
@@ -676,16 +696,6 @@
     {
       "a": "f3_ml",
       "b": "spread",
-      "relation": "game",
-      "rho": -0.0887,
-      "source": "historical",
-      "n": 45524,
-      "spread": 0.0,
-      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
-    },
-    {
-      "a": "f3_ml",
-      "b": "spread",
       "relation": "opp_team",
       "rho": -0.5749,
       "source": "historical",
@@ -722,16 +732,6 @@
       "n": 1080000,
       "spread": 0.002,
       "notes": "runs-model MC, avg over moneyline x total grid"
-    },
-    {
-      "a": "f3_ml",
-      "b": "team_total",
-      "relation": "game",
-      "rho": -0.2376,
-      "source": "historical",
-      "n": 45524,
-      "spread": 0.0017,
-      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "f3_ml",
@@ -792,6 +792,66 @@
       "n": 1080000,
       "spread": 0.034,
       "notes": "runs-model MC, avg over moneyline x total grid"
+    },
+    {
+      "a": "f3_tie",
+      "b": "f5_total",
+      "relation": "game",
+      "rho": -0.4611,
+      "source": "historical",
+      "n": 22762,
+      "spread": 0.0249,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "f3_tie",
+      "b": "ml",
+      "relation": "game",
+      "rho": -0.0,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f3_tie",
+      "b": "rfi",
+      "relation": "game",
+      "rho": -0.4983,
+      "source": "historical",
+      "n": 22762,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f3_tie",
+      "b": "spread",
+      "relation": "game",
+      "rho": -0.0887,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f3_tie",
+      "b": "team_total",
+      "relation": "game",
+      "rho": -0.2376,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0032,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "f3_tie",
+      "b": "total",
+      "relation": "game",
+      "rho": -0.3396,
+      "source": "historical",
+      "n": 22762,
+      "spread": 0.0167,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 5 line-grid point(s)"
     },
     {
       "a": "f5_ml",
@@ -912,16 +972,6 @@
       "n": 1080000,
       "spread": 0.004,
       "notes": "runs-model MC, avg over moneyline x total grid"
-    },
-    {
-      "a": "f5_ml",
-      "b": "ml",
-      "relation": "game",
-      "rho": 0.0,
-      "source": "historical",
-      "n": 45524,
-      "spread": 0.0,
-      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
     },
     {
       "a": "f5_ml",
@@ -1146,16 +1196,6 @@
     {
       "a": "f5_ml",
       "b": "spread",
-      "relation": "game",
-      "rho": -0.1613,
-      "source": "historical",
-      "n": 45524,
-      "spread": 0.0,
-      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
-    },
-    {
-      "a": "f5_ml",
-      "b": "spread",
       "relation": "opp_team",
       "rho": -0.7587,
       "source": "historical",
@@ -1192,16 +1232,6 @@
       "n": 1080000,
       "spread": 0.002,
       "notes": "runs-model MC, avg over moneyline x total grid"
-    },
-    {
-      "a": "f5_ml",
-      "b": "team_total",
-      "relation": "game",
-      "rho": -0.1984,
-      "source": "historical",
-      "n": 45524,
-      "spread": 0.0097,
-      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "f5_ml",
@@ -1664,6 +1694,66 @@
       "notes": "runs-model MC, avg over moneyline x total grid"
     },
     {
+      "a": "f5_tie",
+      "b": "f5_total",
+      "relation": "game",
+      "rho": -0.3478,
+      "source": "historical",
+      "n": 22762,
+      "spread": 0.0555,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
+    },
+    {
+      "a": "f5_tie",
+      "b": "ml",
+      "relation": "game",
+      "rho": 0.0,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_tie",
+      "b": "rfi",
+      "relation": "game",
+      "rho": -0.2421,
+      "source": "historical",
+      "n": 22762,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_tie",
+      "b": "spread",
+      "relation": "game",
+      "rho": -0.1613,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f5_tie",
+      "b": "team_total",
+      "relation": "game",
+      "rho": -0.1984,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0209,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "f5_tie",
+      "b": "total",
+      "relation": "game",
+      "rho": -0.2835,
+      "source": "historical",
+      "n": 22762,
+      "spread": 0.012,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 5 line-grid point(s)"
+    },
+    {
       "a": "f5_total",
       "b": "f5_total",
       "relation": "game",
@@ -1692,6 +1782,16 @@
       "n": 1080000,
       "spread": 0.053,
       "notes": "runs-model MC, avg over moneyline x total grid"
+    },
+    {
+      "a": "f5_total",
+      "b": "f7_tie",
+      "relation": "game",
+      "rho": -0.2477,
+      "source": "historical",
+      "n": 22762,
+      "spread": 0.0191,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 3 line-grid point(s)"
     },
     {
       "a": "f5_total",
@@ -1908,16 +2008,6 @@
       "n": 1080000,
       "spread": 0,
       "notes": "runs-model MC, avg over moneyline x total grid"
-    },
-    {
-      "a": "f7_ml",
-      "b": "ml",
-      "relation": "game",
-      "rho": -0.0,
-      "source": "historical",
-      "n": 45524,
-      "spread": 0.0,
-      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
     },
     {
       "a": "f7_ml",
@@ -2142,16 +2232,6 @@
     {
       "a": "f7_ml",
       "b": "spread",
-      "relation": "game",
-      "rho": -0.2758,
-      "source": "historical",
-      "n": 45524,
-      "spread": 0.0,
-      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
-    },
-    {
-      "a": "f7_ml",
-      "b": "spread",
       "relation": "opp_team",
       "rho": -0.8909,
       "source": "historical",
@@ -2188,16 +2268,6 @@
       "n": 1080000,
       "spread": 0.002,
       "notes": "runs-model MC, avg over moneyline x total grid"
-    },
-    {
-      "a": "f7_ml",
-      "b": "team_total",
-      "relation": "game",
-      "rho": -0.1088,
-      "source": "historical",
-      "n": 45524,
-      "spread": 0.021,
-      "notes": "Retrosheet 2015-2024, tetrachoric, median over 2 line-grid point(s)"
     },
     {
       "a": "f7_ml",
@@ -2258,6 +2328,56 @@
       "n": 1080000,
       "spread": 0.048,
       "notes": "runs-model MC, avg over moneyline x total grid"
+    },
+    {
+      "a": "f7_tie",
+      "b": "ml",
+      "relation": "game",
+      "rho": -0.0,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f7_tie",
+      "b": "rfi",
+      "relation": "game",
+      "rho": -0.1214,
+      "source": "historical",
+      "n": 22762,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f7_tie",
+      "b": "spread",
+      "relation": "game",
+      "rho": -0.2758,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 1 line-grid point(s)"
+    },
+    {
+      "a": "f7_tie",
+      "b": "team_total",
+      "relation": "game",
+      "rho": -0.1088,
+      "source": "historical",
+      "n": 45524,
+      "spread": 0.0421,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 4 line-grid point(s)"
+    },
+    {
+      "a": "f7_tie",
+      "b": "total",
+      "relation": "game",
+      "rho": -0.1672,
+      "source": "historical",
+      "n": 22762,
+      "spread": 0.014,
+      "notes": "Retrosheet 2015-2024, tetrachoric, median over 5 line-grid point(s)"
     },
     {
       "a": "ml",

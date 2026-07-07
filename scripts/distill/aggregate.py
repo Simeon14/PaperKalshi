@@ -7,9 +7,10 @@ kalshi-*), groups rows into (a, b, relation) buckets, takes the median rho, reco
 spread (MAD across the line grid / observations), and merges into the shared correlations file.
 
 Merge rules (from 00-overview.md shared contract 2):
-  - Entries are keyed by (a, b, relation, source). This run only rewrites the source rows it
-    recomputes (e.g. historical); it PRESERVES structural/prior entries owned by the engine
-    agent (02) and any other source's entries already in the file.
+  - Entries are keyed by (a, b, relation, source). Every source present in this run's raw rows
+    (e.g. historical) is REBUILT from scratch: all its existing entries are dropped and replaced,
+    so a bucket that is no longer produced disappears instead of lingering as dead weight. Sources
+    absent from the raw rows (structural/prior, engine-authored) are PRESERVED untouched.
   - distilled entries are emitted only when n >= 30 for the bucket; historical entries carry
     their own n and are not gated.
   - a/b sorted alphabetically; rho clamped to [-1, 1]; relation validated.
@@ -68,8 +69,18 @@ def build_entries(rows):
     return entries
 
 def merge(existing_entries, new_entries):
-    """Key by (a,b,relation,source); new rows overwrite same-source, others preserved."""
-    keyed = {(e["a"], e["b"], e["relation"], e["source"]): e for e in existing_entries}
+    """Rebuild the raw-derived sources from scratch; preserve the hand-authored ones.
+
+    Every raw *.jsonl row carries a derived source (historical / distilled). Those sources are a
+    pure function of the raw files, so we drop ALL existing entries of any source present in this
+    run's new_entries and replace them with the freshly computed set. That way a bucket that stops
+    being produced (e.g. the plan-07 (f{N}_ml, {ml,spread,team_total}, game) tie buckets after the
+    f{N}_tie type split) disappears instead of lingering as dead weight. Structural / prior entries
+    are engine-authored, never appear in raw, and are preserved untouched.
+    """
+    derived = {e["source"] for e in new_entries}
+    keyed = {(e["a"], e["b"], e["relation"], e["source"]): e
+             for e in existing_entries if e["source"] not in derived}
     for e in new_entries:
         keyed[(e["a"], e["b"], e["relation"], e["source"])] = e
     return [keyed[k] for k in sorted(keyed)]

@@ -17,6 +17,11 @@ export type LegType =
   | "f5_spread"
   | "f5_total"
   | "f7_ml"
+  // The F3/F5/F7 "tied after N innings" outcome: game-scoped but team-agnostic, so it gets its
+  // own leg type and never shares a correlation-bucket key with a real-team f{3,5,7}_ml leg.
+  | "f3_tie"
+  | "f5_tie"
+  | "f7_tie"
   | "extras"
   | "rfi"
   // player-scoped
@@ -65,6 +70,7 @@ export type Direction =
   | "team_win" // ml / f3_ml / f5_ml / f7_ml: referenced team wins the segment
   | "team_cover" // spread / f5_spread: referenced team wins by over the line
   | "over" // total / team_total / f5_total: runs over the line
+  | "tie" // f3_tie / f5_tie / f7_tie: the segment is tied after N innings (neither team leads)
   | "yes" // rfi: a run scores in the 1st
   | "extras" // extras: game goes to extra innings
   | "player_over" // player props: player reaches the threshold

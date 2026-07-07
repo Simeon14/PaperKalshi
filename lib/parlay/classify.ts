@@ -30,6 +30,14 @@ const SERIES_TYPE: Record<string, LegType> = {
   KXMLBNEXTHR: "p_hr", // provisional: in-game market, no open sample yet
 };
 
+// The F3/F5/F7 markets carry a team outcome AND a team-agnostic TIE outcome; the TIE outcome
+// gets its own leg type so it does not share a correlation-bucket key with real-team legs.
+const F_TIE_TYPE: Record<string, LegType> = {
+  KXMLBF3: "f3_tie",
+  KXMLBF5: "f5_tie",
+  KXMLBF7: "f7_tie",
+};
+
 // Series that carry a team code in the outcome suffix (team-scoped game legs).
 const TEAM_SCOPED: ReadonlySet<LegType> = new Set<LegType>([
   "ml",
@@ -52,6 +60,9 @@ const DIRECTION: Record<LegType, Direction> = {
   total: "over",
   team_total: "over",
   f5_total: "over",
+  f3_tie: "tie",
+  f5_tie: "tie",
+  f7_tie: "tie",
   rfi: "yes",
   extras: "extras",
   p_hits: "player_over",
@@ -120,7 +131,10 @@ export function classifyLeg(ticker: string, side: Side): ClassifiedLeg {
   const parts = (ticker || "").split("-");
   const series = parts[0] ?? "";
   const gameKey = parts[1] ?? "";
-  const type = SERIES_TYPE[series] ?? "unknown";
+  let type = SERIES_TYPE[series] ?? "unknown";
+  // Divert the TIE outcome of an F3/F5/F7 market to its own leg type BEFORE the TEAM_SCOPED
+  // branch runs, so it stays team-agnostic (no teamRef) but keys its own correlation bucket.
+  if (F_TIE_TYPE[series] && (parts[2] ?? "") === "TIE") type = F_TIE_TYPE[series];
   const canonical = side === "yes"; // YES is canonical for every known MLB series
   const base: ClassifiedLeg = {
     ticker,

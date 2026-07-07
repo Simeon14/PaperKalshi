@@ -1,39 +1,46 @@
 #!/usr/bin/env python3
 """
-Plan 07 / TIE buckets: the F3/F5/F7 "tie after N innings" outcome vs other legs.
+Plan 09 / TIE buckets: the F3/F5/F7 "tied after N innings" outcome vs other legs.
 
-A KXMLBF{3,5,7} market has a team outcome AND a TIE outcome. classify.ts maps both to the same
-LegType (f3_ml/f5_ml/f7_ml); a TIE leg is that type with NO teamRef, so resolveRelation returns
-`game` when it meets any other leg.
+A KXMLBF{3,5,7} market has a team outcome AND a TIE outcome. Plan 09 gives the TIE outcome its own
+LegType (f3_tie / f5_tie / f7_tie) in the engine (classify.ts / types.ts / correlations.ts), so a
+TIE leg no longer shares a correlation-bucket key with a real-team f_ml leg. A TIE leg is
+team-agnostic (no teamRef), so resolveRelation still returns `game` when it meets any other leg,
+but the bucket is now keyed on f{N}_tie -- distinct from the real-team (f{N}_ml, ..., game) bucket
+that historical.py owns. That removes the collision plan 07 had to work around.
 
-CONSEQUENCE (documented for the engine agent): the TIE shares its bucket key with a real-team
-leg of the same type whenever that real-team leg also resolves to `game` (i.e. paired with a
-team-AGNOSTIC leg: total / f5_total / rfi / extras). So (f5_ml, total, game) is ALREADY the
-real-team "leads after 5 vs total" bucket from historical.py; a TIE value cannot be stored there
-without corrupting it. Those TIE partners need a distinct `f{3,5,7}_tie` LegType in the engine.
+Consequence: we can now EMIT every tie-vs-partner bucket, including the higher-value tie-vs-total /
+f5_total / rfi / extras ones plan 07 could only measure-and-withhold. Two partner families:
+  - team-scoped (ml / spread / team_total): pooled over the reference team (home/away), matching
+    the historical convention,
+  - team-agnostic (total / f5_total / rfi / extras): one observation per game.
+All key relation `game`. None collide with a real-team bucket anymore, because the tie type is
+distinct from f{N}_ml.
 
-We therefore EMIT only the collision-free TIE buckets: TIE vs a TEAM-scoped partner
-(ml / spread / team_total), where a distinct-team f_ml leg never resolves to `game`, so the key
-is TIE-only. We MEASURE the rest (vs total / f5_total / rfi) for the report + engine follow-up.
-
-Event: tied after k = cumulative home runs == cumulative away runs through inning k. Partner team
-legs are pooled over the reference team (home/away), matching the historical convention.
+Event: tied after k = cumulative home runs == cumulative away runs through inning k.
+Emitted rows go into Parlay/data/raw/tie-<date>.jsonl; aggregate.py merges them as
+source: "historical", which the engine's lookup priority picks up with no code change.
 """
 from __future__ import annotations
 import json, os, sys, datetime
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from historical import load_games, team_event, game_event, tetrachoric, cum, SEASONS
+from historical import load_games, team_event, game_event, tetrachoric, cum, SEASONS, LINES
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RAW = os.path.join(ROOT, "Parlay", "data", "raw")
 TODAY = datetime.date.today().isoformat()
 
-TIE_TYPES = {"f3_ml": 3, "f5_ml": 5, "f7_ml": 7}
-# collision-free partners (team-scoped: a distinct-team f_ml never makes relation `game`)
-EMIT_PARTNERS = {"ml": [None], "spread": [1.5], "team_total": [3.5, 4.5]}
-# measured-only partners (collide with the real-team historical bucket; need an engine tie type)
-REPORT_PARTNERS = {"total": [7.5, 8.5, 9.5], "f5_total": [4.5], "rfi": [None]}
+# tie leg type -> inning cutoff k (the "tied after k innings" event).
+TIE_TYPES = {"f3_tie": 3, "f5_tie": 5, "f7_tie": 7}
+
+# Every partner is emitted now (the distinct tie type removes the old f_ml collision). Line grids
+# mirror historical.py's realistic Kalshi strikes; None = an unlined binary partner.
+# team-scoped partners pool over the reference team (home/away); team-agnostic partners are one
+# observation per game.
+TEAM_PARTNERS = {"ml": [None], "spread": LINES["spread"], "team_total": LINES["team_total"]}
+GAME_PARTNERS = {"total": LINES["total"], "f5_total": LINES["f5_total"],
+                 "rfi": [None], "extras": [None]}
 
 def tied_after(g, k):
     return cum(g["home_line"], k) == cum(g["away_line"], k)
@@ -58,39 +65,40 @@ def bucket(tie_type, k, partner, lines, games, team_scoped):
                     "rho": round(float(rho), 4), "n": int(len(A))})
     return out
 
+def to_raw(r, tie_type, k, partner):
+    # line lives on whichever of a/b is the (lined) partner; the tie leg never has a line.
+    return {"source": "historical", "sport": "mlb", "ts_date": TODAY,
+            "a": r["a"], "b": r["b"], "relation": "game",
+            "line_a": r["line"] if r["a"] == partner else None,
+            "line_b": r["line"] if r["b"] == partner else None,
+            "pA": None, "pB": None, "pAB": None,
+            "rho": r["rho"], "n": r["n"], "method": "tetrachoric",
+            "note": f"TIE outcome ({tie_type}, tied after {k}) vs {partner}; "
+                    "team-agnostic bucket keyed on the tie type (no real-team collision)"}
+
 def main():
     games = load_games(SEASONS)
-    emit_rows, report_rows = [], []
+    rows = []
     for tie_type, k in TIE_TYPES.items():
-        for partner, lines in EMIT_PARTNERS.items():
+        for partner, lines in TEAM_PARTNERS.items():
             for r in bucket(tie_type, k, partner, lines, games, True):
-                emit_rows.append({"source": "historical", "sport": "mlb", "ts_date": TODAY,
-                                  "a": r["a"], "b": r["b"], "relation": "game",
-                                  "line_a": None, "line_b": r["line"], "pA": None, "pB": None,
-                                  "pAB": None, "rho": r["rho"], "n": r["n"],
-                                  "method": "tetrachoric",
-                                  "note": f"TIE outcome ({tie_type} tied after {k}) vs {partner}; "
-                                          "TIE-only bucket key (distinct-team f_ml never => game)"})
-        for partner, lines in REPORT_PARTNERS.items():
-            report_rows.extend([{**r, "tie": tie_type} for r in
-                                bucket(tie_type, k, partner, lines, games, False)])
+                rows.append(to_raw(r, tie_type, k, partner))
+        for partner, lines in GAME_PARTNERS.items():
+            for r in bucket(tie_type, k, partner, lines, games, False):
+                rows.append(to_raw(r, tie_type, k, partner))
     out_path = os.path.join(RAW, f"tie-{TODAY}.jsonl")
     with open(out_path, "w") as f:
-        for r in emit_rows:
+        for r in rows:
             f.write(json.dumps(r) + "\n")
-    print(f"Wrote {len(emit_rows)} collision-free TIE rows to {out_path}", file=sys.stderr)
-    print("\n=== EMITTED (TIE vs team-scoped, collision-free) ===", file=sys.stderr)
+    print(f"Wrote {len(rows)} TIE rows to {out_path}", file=sys.stderr)
+
     import statistics as st, collections
     byk = collections.defaultdict(list)
-    for r in emit_rows:
+    for r in rows:
         byk[(r["a"], r["b"])].append(r["rho"])
+    print("\n=== EMITTED TIE buckets (all keyed on f{N}_tie, relation game) ===", file=sys.stderr)
     for k2, v in sorted(byk.items()):
-        print(f"  {str(k2):26s} median_rho={st.median(v):+.3f} n_grid={len(v)}", file=sys.stderr)
-    print("\n=== MEASURED-ONLY (TIE vs total/f5_total/rfi; NOT emitted, needs engine tie type) ===",
-          file=sys.stderr)
-    for r in report_rows:
-        print(f"  {r['tie']:6s} vs {r['b'] if r['a']==r['tie'] else r['a']:9s} "
-              f"line={r['line']} rho={r['rho']:+.3f}", file=sys.stderr)
+        print(f"  {str(k2):28s} median_rho={st.median(v):+.4f} n_grid={len(v)}", file=sys.stderr)
 
 if __name__ == "__main__":
     main()

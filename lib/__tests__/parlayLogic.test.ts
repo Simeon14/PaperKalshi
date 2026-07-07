@@ -170,6 +170,13 @@ describe("Fix 2/4: exclusive outcomes are impossible", () => {
       code(() => quoteParlay([leg(`KXMLBF3-${G}-ATL`), leg(`KXMLBF3-${G}-TIE`)], [0.4, 0.25], { table: EMPTY })),
     ).toBe("impossible_combo");
   });
+  it("Plan 09: F5 team + F5 tie still throws impossible_combo after the f5_tie type split", () => {
+    // The contradiction keys on EXCLUSIVE_SERIES (KXMLBF5) + the raw outcome suffix (ATL vs TIE),
+    // not on the leg type, so splitting the tie into f5_tie does not weaken it.
+    expect(
+      code(() => quoteParlay([leg(`KXMLBF5-${G}-ATL`), leg(`KXMLBF5-${G}-TIE`)], [0.4, 0.25], { table: EMPTY })),
+    ).toBe("impossible_combo");
+  });
 });
 
 describe("Fix 4: sub-floor longshots are rejected, not sold at 1c", () => {
@@ -197,5 +204,16 @@ describe("reduceParlay unit checks", () => {
     const legs = [leg(`KXMLBTOTAL-${G}-9`, "yes"), leg(`KXMLBTOTAL-${G}-10`, "no")];
     const r = reduceParlay(legs, [0.5, 0.6]);
     expect(r.ok && r.logicalRho[0][1]).toBeCloseTo(-0.999, 6); // over vs under, opposite direction
+  });
+  it("Plan 09: a tie leg is a singleton, exactly like the teamRef-less f5_ml it replaced", () => {
+    // familyKey is null for a teamRef-less f5_ml AND for f5_tie, so the reduction (and therefore
+    // settlement) is invariant under the type split: the tie leg never collapses into a family.
+    const legs = [leg(`KXMLBF5-${G}-TIE`), leg(`KXMLBTOTAL-${G}-9`)];
+    const r = reduceParlay(legs, [0.25, 0.5]);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.reduced.length).toBe(2); // neither collapses
+      expect(r.logicalRho[0][1]).toBeNull(); // no logical relationship imposed on the pair
+    }
   });
 });

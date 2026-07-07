@@ -492,3 +492,82 @@ describe("Fix B: quote/settlement consistency", () => {
     expect(a.q).toBe(b.q);
   });
 });
+
+// Plan 09: splitting the TIE outcome into f5_tie must NOT change settlement. The tie leg is a
+// singleton under familyKey both as a teamRef-less f5_ml (the old type) and as f5_tie, and
+// settlement reprices from the STORED positional rho matrix (never a fresh table lookup), so a row
+// quoted before the split reprices byte-identically after it.
+describe("Plan 09: tie leg settles/marks invariantly under the f5_ml -> f5_tie type split", () => {
+  const G = "26JUL022210SDLAD";
+  const TIE = `KXMLBF5-${G}-TIE`;
+  const TOT = `KXMLBTOTAL-${G}-3`;
+  // A snapshot as it would have been quoted pre-change: the tie leg + a total, both 50c, with a
+  // stored rho of +0.0835 (the old real-team (f5_ml, total, game) value the tie used to collide
+  // with). The reprice consults this matrix, not the table, so the type relabel is invisible.
+  function tieRow(price_c = 27): ParlayRow {
+    const legs = [ql(TIE, "yes", 50), ql(TOT, "yes", 50)];
+    return {
+      id: "tie1",
+      created_ts: 1,
+      count: 10,
+      price_c,
+      cost_c: 10 * price_c,
+      legs,
+      snapshot: {
+        marginals: { [TIE]: 0.5, [TOT]: 0.5 },
+        rho: [
+          [1, 0.0835],
+          [0.0835, 1],
+        ],
+        legs_order: [TIE, TOT],
+        corr_version: 1,
+        model_version: "copula-1",
+        mode: "default",
+        seed: "tie",
+      },
+    };
+  }
+
+  it("both legs win => payout = cost*100/price (stored price, no recompute)", () => {
+    const r = assessParlay(
+      tieRow(27),
+      new Map<string, LiveMarket>([
+        [TIE, mk("yes")],
+        [TOT, mk("yes")],
+      ]),
+    );
+    expect(r).toEqual({ action: "settle", status: "won", payout_c: Math.round((270 * 100) / 27) });
+  });
+
+  it("open mark reprices the tie+total pair from the STORED rho (singleton reduction, no collapse)", () => {
+    const r = assessParlay(
+      tieRow(27),
+      new Map<string, LiveMarket>([
+        [TIE, mk("")],
+        [TOT, mk("")],
+      ]),
+    );
+    expect(r.action).toBe("mark");
+    if (r.action === "mark") {
+      const qLive = 0.25 + Math.asin(0.0835) / (2 * Math.PI); // phi2(0,0,rho) at 0.5/0.5 marginals
+      expect(r.value_c).toBe(Math.round(1000 * qLive)); // potential (1000) * frozen joint
+    }
+  });
+
+  it("priceFrozenSubset over {tie,total} uses the stored rho positionally (type-independent)", () => {
+    const res = priceFrozenSubset(
+      [
+        { ticker: TIE, side: "yes" },
+        { ticker: TOT, side: "yes" },
+      ],
+      [0.5, 0.5],
+      [
+        [1, 0.0835],
+        [0.0835, 1],
+      ],
+      [TIE, TOT],
+      "tie",
+    );
+    expect(res.q).toBeCloseTo(0.25 + Math.asin(0.0835) / (2 * Math.PI), 6);
+  });
+});

@@ -17,6 +17,7 @@ import type {
 
 const LEG_TYPES: ReadonlySet<string> = new Set<LegType>([
   "ml", "spread", "total", "team_total", "f3_ml", "f5_ml", "f5_spread", "f5_total", "f7_ml",
+  "f3_tie", "f5_tie", "f7_tie",
   "extras", "rfi", "p_hits", "p_hr", "p_hrr", "p_ks", "p_rbi", "p_sb", "p_tb", "p_outs",
   "unknown",
 ]);
